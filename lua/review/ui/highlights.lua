@@ -2,35 +2,10 @@ local palette = require("review.ui.palette")
 
 local M = {}
 
-local LINKS = {
-    ReviewDiffAdd = "DiffAdd",
-    ReviewDiffDelete = "DiffDelete",
-    ReviewDiffChange = "DiffChange",
-    ReviewDiffText = "DiffText",
-    ReviewDiffPadding = "Folded",
-    ReviewSelected = "Visual",
-    ReviewActiveRow = "CursorLine",
-    ReviewDiffCursorLine = "CursorLine",
-    ReviewCommentNote = "DiagnosticInfo",
-    ReviewCommentFix = "DiagnosticError",
-    ReviewCommentQuestion = "DiagnosticWarn",
-    ReviewCommentText = "Normal",
-    ReviewGitAdded = "Added",
-    ReviewGitModified = "Changed",
-    ReviewGitDeleted = "Removed",
-    ReviewGitConflicted = "DiagnosticError",
-    ReviewWinSeparator = "WinSeparator",
-    ReviewTitle = "Title",
-    ReviewFilePath = "Normal",
-    ReviewFilePathFaded = "Comment",
-    ReviewFileFaded = "Comment",
-    ReviewTreeDirectory = "Directory",
-    ReviewCommentListEmpty = "Comment",
-    ReviewQCPanelContext = "Comment",
-}
-
 function M.setup()
     local highlights = {
+        ReviewDiffAdd = { bg = palette.diff_add },
+        ReviewDiffDelete = { bg = palette.diff_delete },
 
         ReviewDiffAddInline = { bg = palette.diff_add_emphasis },
         ReviewDiffDeleteInline = { bg = palette.diff_delete_emphasis },
@@ -45,17 +20,29 @@ function M.setup()
         ReviewDiffFileDividerBorderTop = { fg = palette.border_accent },
         ReviewDiffFileDividerBorderBottom = { fg = palette.border_accent },
 
+        ReviewDiffPadding = { bg = palette.padding },
+
+        ReviewDiffChange = { fg = palette.text, bg = palette.surface },
+        ReviewDiffText = { fg = palette.highlight, bg = palette.border, bold = true },
         ReviewDiffHeader = { fg = palette.special, bg = palette.tint, bold = true },
         ReviewDiffHunkHeader = { fg = palette.accent, bg = palette.header, italic = true },
 
+        ReviewCommentNote = { fg = palette.accent, bold = true },
+        ReviewCommentFix = { fg = palette.negative, bold = true },
+        ReviewCommentQuestion = { fg = palette.highlight, bold = true },
         ReviewCommentBorder = { fg = palette.muted },
         ReviewCommentBorderFocusNote = { fg = palette.accent },
         ReviewCommentBorderFocusFix = { fg = palette.negative },
         ReviewCommentBorderFocusQuestion = { fg = palette.highlight },
+        ReviewCommentText = { fg = palette.text },
 
         ReviewFileReviewed = { fg = palette.positive },
         ReviewFileModified = { fg = palette.caution },
         ReviewFilePending = { fg = palette.text },
+        ReviewFilePath = { fg = palette.text },
+        ReviewFilePathFaded = { fg = palette.muted },
+        ReviewFileFaded = { fg = palette.faded },
+        ReviewTreeDirectory = { fg = palette.text },
         ReviewTreeIndent = { fg = palette.border },
         ReviewLogo = { fg = palette.accent, bold = true },
 
@@ -70,7 +57,11 @@ function M.setup()
         ReviewInputBorderQuestion = { fg = palette.highlight },
         ReviewInputTitleQuestion = { fg = palette.highlight, bold = true },
 
+        ReviewGitAdded = { fg = palette.positive },
+        ReviewGitModified = { fg = palette.caution },
+        ReviewGitDeleted = { fg = palette.negative },
         ReviewGitRenamed = { fg = palette.special },
+        ReviewGitConflicted = { fg = palette.negative },
 
         ReviewBranchAhead = { fg = palette.caution },
         ReviewBranchBehind = { fg = palette.caution },
@@ -81,9 +72,12 @@ function M.setup()
         ReviewFloatTitle = { fg = palette.text, bold = true },
         ReviewFloatTitleActive = { fg = palette.positive, bold = true },
 
+        ReviewWinSeparator = { fg = palette.muted },
         ReviewBorder = { fg = palette.border },
+        ReviewTitle = { fg = palette.accent, bold = true },
         ReviewWinBar = { fg = palette.text, bold = true, bg = "NONE" },
         ReviewWinBarCount = { fg = palette.faded, bg = "NONE" },
+        ReviewSelected = { bg = palette.selected },
         ReviewHelpGroup = { fg = palette.text, bg = palette.surface, bold = true },
         ReviewHelpKey = { fg = palette.highlight },
 
@@ -97,9 +91,11 @@ function M.setup()
         ReviewQCPanelHeader = { fg = palette.accent, bold = true },
         ReviewQCPanelBorder = { fg = palette.border },
         ReviewQCPanelFile = { fg = palette.text, bold = true },
+        ReviewQCPanelContext = { fg = palette.muted, italic = true },
         ReviewQCPanelLineNr = { fg = palette.muted },
 
         ReviewCommentListFile = { fg = palette.text },
+        ReviewCommentListEmpty = { fg = palette.muted, italic = true },
 
         ReviewTemplateKey = { fg = palette.highlight, bold = true },
         ReviewTemplateLabel = { fg = palette.text },
@@ -108,6 +104,9 @@ function M.setup()
 
         ReviewSelectItem = { fg = palette.accent, bold = true },
         ReviewSelectHint = { fg = palette.muted },
+
+        ReviewActiveRow = { bg = palette.surface },
+        ReviewDiffCursorLine = { bg = palette.cursor_line },
 
         ReviewCommitHash = { fg = palette.highlight },
         ReviewCommitAuthor = { fg = palette.accent },
@@ -141,10 +140,6 @@ function M.setup()
     for name, opts in pairs(highlights) do
         opts.default = true
         vim.api.nvim_set_hl(0, name, opts)
-    end
-
-    for name, target in pairs(LINKS) do
-        vim.api.nvim_set_hl(0, name, { link = target, default = true })
     end
 end
 
