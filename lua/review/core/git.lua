@@ -545,7 +545,22 @@ function M.restore_file(file)
             { text = true, cwd = git_root }
         ):wait()
 
-        return reset.code == 0
+        if reset.code == 0 then
+            return true
+        end
+
+        -- A file staged for addition does not exist in HEAD, so checkout fails.
+        -- Unstage it and remove it from the worktree instead.
+        local removed = vim.system(
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rm", "-f", "--quiet", "--", file },
+            { text = true, cwd = git_root }
+        ):wait()
+
+        if removed.code ~= 0 then
+            log.error("restore_file: failed to restore", file, vim.trim(removed.stderr or reset.stderr or ""))
+        end
+
+        return removed.code == 0
     end)
 end
 
