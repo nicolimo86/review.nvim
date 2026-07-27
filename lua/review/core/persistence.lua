@@ -7,6 +7,7 @@ local M = {}
 local FILENAME = "review-session.json"
 
 local loaded_path = nil
+local unreadable_path = nil
 
 ---Get the path to the persistence file
 ---@return string|nil
@@ -38,21 +39,26 @@ function M.load()
         return false
     end
 
-    loaded_path = path
-
     local ok, data = json_persistence.read_json_file(path)
     if not ok then
-        vim.notify("Failed to parse review session file", vim.log.levels.WARN)
+        unreadable_path = path
+        vim.notify("Failed to parse review session file, leaving it untouched", vim.log.levels.WARN)
+        log.warn("persistence: parse failed, will not overwrite or delete", path)
         return false
     end
+
+    if data and data.version ~= 1 then
+        unreadable_path = path
+        vim.notify("Unsupported review session file version, leaving it untouched", vim.log.levels.WARN)
+        log.warn("persistence: version", tostring(data.version), "unsupported, will not overwrite or delete", path)
+        return false
+    end
+
+    loaded_path = path
+    unreadable_path = nil
 
     if not data then
         return true
-    end
-
-    if data.version ~= 1 then
-        vim.notify("Unsupported review session file version", vim.log.levels.WARN)
-        return false
     end
 
     if data.files then
@@ -95,6 +101,11 @@ function M.save()
 
     if loaded_path and loaded_path ~= path then
         log.warn("persistence: refusing to save into", path, "loaded from", loaded_path)
+        return false
+    end
+
+    if unreadable_path == path then
+        log.warn("persistence: refusing to overwrite", path, "-- it exists but could not be read")
         return false
     end
 
@@ -149,6 +160,12 @@ function M.delete()
     if not path then
         return false
     end
+
+    if unreadable_path == path then
+        log.warn("persistence: refusing to delete", path, "-- it exists but could not be read")
+        return false
+    end
+
     os.remove(path)
     return true
 end
