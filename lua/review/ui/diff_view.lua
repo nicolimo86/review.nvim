@@ -706,6 +706,11 @@ local function render_diff_async(bufnr, file, expected_generation)
 
     state.get_file_state(file).render_lines = render_lines
 
+    -- Publish the mapping with the buffer content, before stage 2 yields
+    if M.current and M.current.bufnr == bufnr and expected_generation == diff_generation then
+        M.current.render_lines = render_lines
+    end
+
     -- Stage 2: async treesitter highlights (fetches file content in background)
     apply_treesitter_highlights_async(bufnr, render_lines, display_lines, file, expected_generation)
 
