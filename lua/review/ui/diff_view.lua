@@ -1135,7 +1135,7 @@ end
 
 ---Add comment with inline input (Tab to cycle type)
 local function add_comment()
-    if not M.current then
+    if not M.current or not M.current.file then
         return
     end
 
@@ -2048,6 +2048,9 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
     end
 
     registered_keymaps = {}
+    for _, keymap in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
+        pcall(vim.api.nvim_buf_del_keymap, bufnr, "n", keymap.lhs)
+    end
     vim.keymap.set("n", "q", close_review, { buffer = bufnr, nowait = true })
 
     pcall(vim.api.nvim_buf_set_name, bufnr, "Review: commit preview")
