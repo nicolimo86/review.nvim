@@ -49,23 +49,10 @@ function M.load()
     return true
 end
 
----Save comments to disk
+---Write the current comments to a specific path
+---@param path string
 ---@return boolean success
-function M.save()
-    if not require("review.config").get().persistence.enabled then
-        return false
-    end
-
-    local path = M.get_path()
-    if not path then
-        return false
-    end
-
-    if loaded_path and loaded_path ~= path then
-        log.warn("quick comments: refusing to save into", path, "loaded from", loaded_path)
-        return false
-    end
-
+local function save_to(path)
     local state_data = qc_state.export()
 
     if qc_state.count() == 0 then
@@ -89,12 +76,64 @@ function M.save()
     return true
 end
 
+---Save comments to disk
+---@return boolean success
+function M.save()
+    if not require("review.config").get().persistence.enabled then
+        return false
+    end
+
+    local path = M.get_path()
+    if not path then
+        return false
+    end
+
+    if loaded_path and loaded_path ~= path then
+        vim.notify("Quick comments not saved: repository changed since load", vim.log.levels.WARN)
+        log.warn("quick comments: refusing to save into", path, "loaded from", loaded_path)
+        return false
+    end
+
+    return save_to(path)
+end
+
+---Persist to the repository the comments were loaded from, then load the
+---comments belonging to the repository now in scope
+function M.reload_for_cwd()
+    local path = M.get_path()
+    if path == loaded_path then
+        return
+    end
+
+    if loaded_path and qc_state.count() > 0 then
+        save_to(loaded_path)
+    end
+
+    qc_state.reset()
+    loaded_path = nil
+
+    if path then
+        M.load()
+    end
+
+    require("review.quick_comments.signs").update_file(vim.api.nvim_buf_get_name(0))
+end
+
 ---Set up autosave on VimLeavePre
 function M.setup_autosave()
+    local group = vim.api.nvim_create_augroup("ReviewQuickCommentsPersist", { clear = true })
+
     vim.api.nvim_create_autocmd("VimLeavePre", {
-        group = vim.api.nvim_create_augroup("ReviewQuickCommentsPersist", { clear = true }),
+        group = group,
         callback = function()
             M.save()
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("DirChanged", {
+        group = group,
+        callback = function()
+            M.reload_for_cwd()
         end,
     })
 end
