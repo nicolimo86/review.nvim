@@ -35,6 +35,9 @@ M.split_state = nil
 
 M.transitioning = false
 
+---@type number|nil
+M.pending_restore_source_line = nil
+
 ---Namespace for diff highlights
 local ns_diff = vim.api.nvim_create_namespace("review_diff")
 
@@ -1736,8 +1739,24 @@ function M.create(layout_component, file, callbacks)
             M.current.render_lines = render_lines
         end
 
-        if not M.transitioning and M.current and vim.api.nvim_win_is_valid(M.current.winid) then
-            vim.api.nvim_win_set_cursor(M.current.winid, { 1, 0 })
+        if M.current and vim.api.nvim_win_is_valid(M.current.winid) then
+            local restore = M.pending_restore_source_line
+            M.pending_restore_source_line = nil
+
+            if restore then
+                M.transitioning = false
+                local target = 1
+                for index, line in ipairs(render_lines or {}) do
+                    local line_nr = line.source_line or line.new_line or line.old_line
+                    if line_nr and line_nr >= restore then
+                        target = index
+                        break
+                    end
+                end
+                pcall(vim.api.nvim_win_set_cursor, M.current.winid, { target, 0 })
+            elseif not M.transitioning then
+                vim.api.nvim_win_set_cursor(M.current.winid, { 1, 0 })
+            end
         end
 
         render_comments(bufnr, file)
@@ -1775,10 +1794,19 @@ function M.toggle_diff_mode(callbacks)
     end
 
     M.transitioning = true
+    M.pending_restore_source_line = source_line
     M.create(diff_split, M.current.file, callbacks)
-    M.transitioning = false
 
-    if source_line and M.current.render_lines then
+    -- The split path renders synchronously, so restore here; the unified path
+    -- is async and restores from pending_restore_source_line when it completes
+    if state.state.diff_mode ~= "split" then
+        return
+    end
+
+    M.transitioning = false
+    M.pending_restore_source_line = nil
+
+    if source_line and M.current and M.current.render_lines then
         local target_lines = M.split_state and M.split_state.new_lines or M.current.render_lines
         for i, line in ipairs(target_lines) do
             local line_nr = line.source_line or line.new_line or line.old_line
@@ -2125,6 +2153,8 @@ function M.destroy()
     diff_generation = diff_generation + 1
     M.current = nil
     M.split_state = nil
+    M.transitioning = false
+    M.pending_restore_source_line = nil
 end
 
 return M
