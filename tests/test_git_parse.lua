@@ -116,4 +116,48 @@ T["commit line: empty and malformed input"] = function()
     expect.equality(git.parse_commit_line("no separators here"), nil)
 end
 
+local unquote = new_set()
+T["unquote_path"] = unquote
+
+unquote["leaves an unquoted path alone"] = function()
+    expect.equality(git.unquote_path("lua/review/core/git.lua"), "lua/review/core/git.lua")
+end
+
+unquote["leaves a path with only a leading quote alone"] = function()
+    expect.equality(git.unquote_path('"unterminated.txt'), '"unterminated.txt')
+end
+
+unquote["decodes an escaped double quote"] = function()
+    expect.equality(git.unquote_path('"we\\"ird.txt"'), 'we"ird.txt')
+end
+
+unquote["decodes an escaped backslash"] = function()
+    expect.equality(git.unquote_path('"back\\\\slash.txt"'), "back\\slash.txt")
+end
+
+unquote["decodes a newline"] = function()
+    expect.equality(git.unquote_path('"new\\nline.txt"'), "new\nline.txt")
+end
+
+unquote["decodes a tab"] = function()
+    expect.equality(git.unquote_path('"a\\tb.txt"'), "a\tb.txt")
+end
+
+unquote["decodes octal escapes"] = function()
+    expect.equality(git.unquote_path('"caf\\303\\251.txt"'), "café.txt")
+end
+
+unquote["name-status line with a quoted path is decoded"] = function()
+    local entry = git.parse_name_status_line('M\t"we\\"ird.txt"')
+    expect.equality(entry.status, "modified")
+    expect.equality(entry.path, 'we"ird.txt')
+end
+
+unquote["rename line with quoted paths is decoded"] = function()
+    local entry = git.parse_name_status_line('R100\t"old\\nname.txt"\t"new\\"name.txt"')
+    expect.equality(entry.status, "renamed")
+    expect.equality(entry.rename_from, "old\nname.txt")
+    expect.equality(entry.path, 'new"name.txt')
+end
+
 return T

@@ -40,11 +40,68 @@ function M.clear_cache()
     cached_cwd = nil
 end
 
----Split output into non-empty lines
+local UNQUOTE_ESCAPES = {
+    a = "\a",
+    b = "\b",
+    f = "\f",
+    n = "\n",
+    r = "\r",
+    t = "\t",
+    v = "\v",
+    ["\\"] = "\\",
+    ['"'] = '"',
+}
+
+---Decode a path git wrapped in C-style quoting.
+---core.quotepath=false only suppresses quoting of non-ASCII bytes; git still
+---quotes any path containing a quote, a backslash or a control character.
+---@param path string
+---@return string
+function M.unquote_path(path)
+    if not path or #path < 2 or path:sub(1, 1) ~= '"' or path:sub(-1) ~= '"' then
+        return path
+    end
+
+    local body = path:sub(2, -2)
+    local out = {}
+    local index = 1
+
+    while index <= #body do
+        local char = body:sub(index, index)
+        if char ~= "\\" then
+            table.insert(out, char)
+            index = index + 1
+        else
+            local octal = body:match("^([0-7][0-7][0-7])", index + 1)
+            local escaped = body:sub(index + 1, index + 1)
+            if octal then
+                table.insert(out, string.char(tonumber(octal, 8)))
+                index = index + 4
+            elseif UNQUOTE_ESCAPES[escaped] then
+                table.insert(out, UNQUOTE_ESCAPES[escaped])
+                index = index + 2
+            else
+                table.insert(out, escaped)
+                index = index + 2
+            end
+        end
+    end
+
+    return table.concat(out)
+end
+
+---Split output into non-empty lines, decoding any C-quoted paths
 ---@param output string
 ---@return fun(): string|nil iterator
 local function parse_lines(output)
-    return output:gmatch("[^\r\n]+")
+    local iterator = output:gmatch("[^\r\n]+")
+    return function()
+        local line = iterator()
+        if line == nil then
+            return nil
+        end
+        return M.unquote_path(line)
+    end
 end
 
 ---@class GitNameStatus
@@ -64,8 +121,8 @@ function M.parse_name_status_line(line)
     if rename_status and old_path and new_path then
         return {
             status = rename_status == "R" and "renamed" or "copied",
-            path = new_path,
-            rename_from = old_path,
+            path = M.unquote_path(new_path),
+            rename_from = M.unquote_path(old_path),
         }
     end
 
@@ -73,6 +130,8 @@ function M.parse_name_status_line(line)
     if not status_char or not file_path then
         return nil
     end
+
+    file_path = M.unquote_path(file_path)
 
     local status_map = {
         A = "added",
