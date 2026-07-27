@@ -19,8 +19,10 @@ function M.get_root()
         return cached_root
     end
 
-    local result = vim.system({ "git", "-c", "core.quotepath=false", "rev-parse", "--show-toplevel" }, { text = true })
-        :wait()
+    local result = vim.system(
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rev-parse", "--show-toplevel" },
+        { text = true }
+    ):wait()
     if result.code == 0 then
         cached_root = vim.trim(result.stdout)
         cached_cwd = cwd
@@ -158,10 +160,16 @@ function M.get_changed_files(base, base_end)
         local seen = {}
 
         if base_end then
-            local range_result = vim.system(
-                { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-only", base .. "..." .. base_end },
-                { text = true, cwd = git_root }
-            ):wait()
+            local range_result = vim.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "-M",
+                "--name-only",
+                base .. "..." .. base_end,
+            }, { text = true, cwd = git_root }):wait()
 
             if range_result.code == 0 then
                 for line in parse_lines(range_result.stdout) do
@@ -177,7 +185,7 @@ function M.get_changed_files(base, base_end)
 
         -- Get unstaged changes
         local unstaged = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-only", base },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-only", base },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -192,7 +200,7 @@ function M.get_changed_files(base, base_end)
 
         -- Get staged changes
         local staged = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--cached", "--name-only" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--cached", "--name-only" },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -206,10 +214,15 @@ function M.get_changed_files(base, base_end)
         end
 
         -- Get untracked files
-        local untracked = vim.system(
-            { "git", "-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard" },
-            { text = true, cwd = git_root }
-        ):wait()
+        local untracked = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+        }, { text = true, cwd = git_root }):wait()
 
         if untracked.code == 0 then
             for line in parse_lines(untracked.stdout) do
@@ -229,10 +242,17 @@ end
 ---@return boolean
 function M.is_untracked(file)
     return with_git_root(false, function(git_root)
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard", "--", file },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "--",
+            file,
+        }, { text = true, cwd = git_root }):wait()
 
         return result.code == 0 and vim.trim(result.stdout) ~= ""
     end)
@@ -256,8 +276,18 @@ function M.get_diff(file, base, base_end, opts)
 
     if base_end then
         local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
-        local cmd =
-            { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, base .. "..." .. base_end, "--", file }
+        local cmd = {
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            context_flag,
+            base .. "..." .. base_end,
+            "--",
+            file,
+        }
         local result = vim.system(cmd, { text = true, cwd = git_root }):wait()
 
         if result.code ~= 0 then
@@ -294,15 +324,22 @@ function M.get_diff(file, base, base_end, opts)
     local is_staged_only = file_status == "staged_only"
     if not file_status then
         local unstaged_result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--name-only", "--", file },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only", "--", file },
             { text = true, cwd = git_root }
         ):wait()
 
         if unstaged_result.code == 0 and vim.trim(unstaged_result.stdout) == "" then
-            local staged_result = vim.system(
-                { "git", "-c", "core.quotepath=false", "diff", "--cached", "--name-only", "--", file },
-                { text = true, cwd = git_root }
-            ):wait()
+            local staged_result = vim.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "--cached",
+                "--name-only",
+                "--",
+                file,
+            }, { text = true, cwd = git_root }):wait()
             if staged_result.code == 0 and vim.trim(staged_result.stdout) ~= "" then
                 is_staged_only = true
             end
@@ -312,9 +349,21 @@ function M.get_diff(file, base, base_end, opts)
     local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
     local cmd
     if is_staged_only then
-        cmd = { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, "--cached", "--", file }
+        cmd = {
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            context_flag,
+            "--cached",
+            "--",
+            file,
+        }
     else
-        cmd = { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, base, "--", file }
+        cmd =
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", context_flag, base, "--", file }
     end
 
     local result = vim.system(cmd, { text = true, cwd = git_root }):wait()
@@ -334,10 +383,16 @@ function M.get_commit_diff(base, base_end)
     local no_repo = { success = false, output = "", error = "Not in a git repository" }
     return with_git_root(no_repo, function(git_root)
         local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, base .. "..." .. base_end },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            context_flag,
+            base .. "..." .. base_end,
+        }, { text = true, cwd = git_root }):wait()
 
         if result.code ~= 0 then
             return { success = false, output = "", error = result.stderr }
@@ -355,10 +410,9 @@ function M.get_full_diff(base)
     local no_repo = { success = false, output = "", error = "Not in a git repository" }
     return with_git_root(no_repo, function(git_root)
         local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", base },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", base },
             { text = true, cwd = git_root }
-        )
-            :wait()
+        ):wait()
 
         if result.code ~= 0 then
             return { success = false, output = "", error = result.stderr }
@@ -380,10 +434,9 @@ function M.stage_file(file)
 
     log.debug("stage_file:", file)
     local result = vim.system(
-        { "git", "-c", "core.quotepath=false", "add", "--", file },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "add", "--", file },
         { text = true, cwd = git_root }
-    )
-        :wait()
+    ):wait()
 
     if result.code ~= 0 then
         log.error("stage_file failed:", file, result.stderr)
@@ -403,7 +456,7 @@ function M.unstage_file(file)
 
     log.debug("unstage_file:", file)
     local result = vim.system(
-        { "git", "-c", "core.quotepath=false", "reset", "HEAD", "--", file },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "reset", "HEAD", "--", file },
         { text = true, cwd = git_root }
     ):wait()
 
@@ -425,7 +478,7 @@ function M.restore_file(file)
         end
 
         local reset = vim.system(
-            { "git", "-c", "core.quotepath=false", "checkout", "HEAD", "--", file },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "checkout", "HEAD", "--", file },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -438,10 +491,17 @@ end
 ---@return boolean
 function M.is_staged(file)
     return with_git_root(false, function(git_root)
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--cached", "--name-only", "--", file },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            file,
+        }, { text = true, cwd = git_root }):wait()
 
         if result.code ~= 0 then
             return false
@@ -458,7 +518,7 @@ function M.has_unstaged_changes(file)
     return with_git_root(false, function(git_root)
         -- git diff (no --cached) compares working tree to index
         local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--name-only", "--", file },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only", "--", file },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -475,7 +535,7 @@ end
 function M.get_staged_files()
     return with_git_root({}, function(git_root)
         local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--cached", "--name-only" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--cached", "--name-only" },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -500,10 +560,9 @@ function M.get_unstaged_files()
     return with_git_root({}, function(git_root)
         -- git diff (no --cached) compares working tree to index
         local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--name-only" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only" },
             { text = true, cwd = git_root }
-        )
-            :wait()
+        ):wait()
 
         if result.code ~= 0 then
             return {}
@@ -535,10 +594,18 @@ function M.get_file_status(file, base)
         end
 
         -- Check file status relative to base
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-status", base, "--", file },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            "--name-status",
+            base,
+            "--",
+            file,
+        }, { text = true, cwd = git_root }):wait()
 
         if result.code == 0 and result.stdout ~= "" then
             local status_char = result.stdout:sub(1, 1)
@@ -553,10 +620,18 @@ function M.get_file_status(file, base)
 
         -- Also check staged changes (only for HEAD comparison)
         if base == "HEAD" then
-            local staged_result = vim.system(
-                { "git", "-c", "core.quotepath=false", "diff", "-M", "--cached", "--name-status", "--", file },
-                { text = true, cwd = git_root }
-            ):wait()
+            local staged_result = vim.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "-M",
+                "--cached",
+                "--name-status",
+                "--",
+                file,
+            }, { text = true, cwd = git_root }):wait()
 
             if staged_result.code == 0 and staged_result.stdout ~= "" then
                 local status_char = staged_result.stdout:sub(1, 1)
@@ -597,10 +672,16 @@ function M.get_all_file_statuses(files, base, base_end)
     local untracked_set = {}
 
     if base_end then
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-status", base .. "..." .. base_end },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            "--name-status",
+            base .. "..." .. base_end,
+        }, { text = true, cwd = git_root }):wait()
 
         if result.code == 0 then
             for line in parse_lines(result.stdout) do
@@ -626,10 +707,15 @@ function M.get_all_file_statuses(files, base, base_end)
 
     -- Get all untracked files (only for HEAD comparison)
     if base == "HEAD" then
-        local untracked = vim.system(
-            { "git", "-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard" },
-            { text = true, cwd = git_root }
-        ):wait()
+        local untracked = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+        }, { text = true, cwd = git_root }):wait()
         if untracked.code == 0 then
             for line in parse_lines(untracked.stdout) do
                 if line ~= "" then
@@ -641,7 +727,7 @@ function M.get_all_file_statuses(files, base, base_end)
 
     -- Get all file statuses relative to base in one call
     local result = vim.system(
-        { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-status", base },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-status", base },
         { text = true, cwd = git_root }
     ):wait()
 
@@ -654,7 +740,7 @@ function M.get_all_file_statuses(files, base, base_end)
     -- Also check staged changes (only for HEAD comparison)
     if base == "HEAD" then
         local staged_result = vim.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--cached", "--name-status" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--cached", "--name-status" },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -694,6 +780,7 @@ function M.get_recent_commits(count)
             "git",
             "-c",
             "core.quotepath=false",
+            "--literal-pathspecs",
             "log",
             "--pretty=format:%H%x1f%h%x1f%s%x1f%an%x1f%ar%x1f%P",
             "-n",
@@ -726,7 +813,7 @@ function M.get_local_branches(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "branch", "--format=%(refname:short)" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "branch", "--format=%(refname:short)" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -751,19 +838,31 @@ end
 ---@return string
 function M.get_main_branch()
     return with_git_root("main", function(git_root)
-        local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "rev-parse", "--verify", "--quiet", "refs/heads/main" },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "refs/heads/main",
+        }, { text = true, cwd = git_root }):wait()
 
         if result.code == 0 then
             return "main"
         end
 
-        local master_result = vim.system(
-            { "git", "-c", "core.quotepath=false", "rev-parse", "--verify", "--quiet", "refs/heads/master" },
-            { text = true, cwd = git_root }
-        ):wait()
+        local master_result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "refs/heads/master",
+        }, { text = true, cwd = git_root }):wait()
 
         if master_result.code == 0 then
             return "master"
@@ -783,7 +882,7 @@ function M.get_current_branch(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "rev-parse", "--abbrev-ref", "HEAD" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rev-parse", "--abbrev-ref", "HEAD" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -808,7 +907,7 @@ function M.commit(message, callback, description)
         return
     end
 
-    local cmd = { "git", "-c", "core.quotepath=false", "commit", "-m", message }
+    local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "commit", "-m", message }
     if description and description ~= "" then
         table.insert(cmd, "-m")
         table.insert(cmd, description)
@@ -835,8 +934,10 @@ function M.stage_all()
     end
 
     log.info("stage_all")
-    local result = vim.system({ "git", "-c", "core.quotepath=false", "add", "-A" }, { text = true, cwd = git_root })
-        :wait()
+    local result = vim.system(
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "add", "-A" },
+        { text = true, cwd = git_root }
+    ):wait()
 
     if result.code ~= 0 then
         log.error("stage_all failed:", result.stderr)
@@ -852,8 +953,10 @@ function M.unstage_all()
     end
 
     log.info("unstage_all")
-    local result = vim.system({ "git", "-c", "core.quotepath=false", "reset", "HEAD" }, { text = true, cwd = git_root })
-        :wait()
+    local result = vim.system(
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "reset", "HEAD" },
+        { text = true, cwd = git_root }
+    ):wait()
 
     if result.code ~= 0 then
         log.error("unstage_all failed:", result.stderr)
@@ -871,7 +974,7 @@ function M.amend_no_edit(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "commit", "--amend", "--no-edit" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "commit", "--amend", "--no-edit" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -895,7 +998,7 @@ function M.soft_reset_head(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "reset", "--soft", "HEAD~1" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "reset", "--soft", "HEAD~1" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -921,7 +1024,7 @@ function M.get_file_at_rev(file, rev)
     end
 
     local result = vim.system(
-        { "git", "-c", "core.quotepath=false", "show", rev .. ":" .. file },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "show", rev .. ":" .. file },
         { text = true, cwd = git_root }
     ):wait()
 
@@ -955,7 +1058,7 @@ end
 function M.get_unpushed_hashes()
     return with_git_root({}, function(git_root)
         local result = vim.system(
-            { "git", "-c", "core.quotepath=false", "rev-list", "@{u}..HEAD" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rev-list", "@{u}..HEAD" },
             { text = true, cwd = git_root }
         ):wait()
 
@@ -984,7 +1087,7 @@ function M.get_unpushed_count(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "rev-list", "--count", "@{u}..HEAD" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rev-list", "--count", "@{u}..HEAD" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1012,6 +1115,7 @@ function M.get_branch_sync_counts(callback)
         "git",
         "-c",
         "core.quotepath=false",
+        "--literal-pathspecs",
         "for-each-ref",
         "--format=%(refname:short) %(upstream:track)",
         "refs/heads/",
@@ -1049,7 +1153,7 @@ function M.has_dirty_worktree(callback)
     end
 
     vim.system(
-        { "git", "-c", "core.quotepath=false", "status", "--porcelain" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "status", "--porcelain" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1078,7 +1182,7 @@ function M.checkout(branch_name, callback)
 
     log.info("checkout: switching to", branch_name)
     vim.system(
-        { "git", "-c", "core.quotepath=false", "checkout", branch_name },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "checkout", branch_name },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1109,7 +1213,7 @@ function M.create_branch(branch_name, base_branch, callback)
 
     log.info("create_branch: creating", branch_name, "from", base_branch)
     vim.system(
-        { "git", "-c", "core.quotepath=false", "checkout", "-b", branch_name, base_branch },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "checkout", "-b", branch_name, base_branch },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1139,7 +1243,7 @@ function M.delete_branch(branch_name, callback)
 
     log.info("delete_branch: deleting", branch_name)
     vim.system(
-        { "git", "-c", "core.quotepath=false", "branch", "-d", branch_name },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "branch", "-d", branch_name },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1168,7 +1272,7 @@ function M.pull(callback)
 
     log.info("pull: starting")
     vim.system(
-        { "git", "-c", "core.quotepath=false", "pull", "--ff-only" },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "pull", "--ff-only" },
         { text = true, cwd = git_root },
         function(result)
             vim.schedule(function()
@@ -1196,7 +1300,7 @@ function M.push(callback, force)
         return
     end
 
-    local cmd = { "git", "-c", "core.quotepath=false", "push" }
+    local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "push" }
     if force then
         table.insert(cmd, "--force-with-lease")
     end
@@ -1258,7 +1362,7 @@ function M.commit_streaming(message, on_output, callback, description)
         return
     end
 
-    local cmd = { "git", "-c", "core.quotepath=false", "commit", "-m", message }
+    local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "commit", "-m", message }
     if description and description ~= "" then
         table.insert(cmd, "-m")
         table.insert(cmd, description)
@@ -1294,7 +1398,7 @@ function M.amend_no_edit_streaming(on_output, callback)
         return
     end
 
-    vim.system({ "git", "-c", "core.quotepath=false", "commit", "--amend", "--no-edit" }, {
+    vim.system({ "git", "-c", "core.quotepath=false", "--literal-pathspecs", "commit", "--amend", "--no-edit" }, {
         cwd = git_root,
         stdout = line_buffered_handler(on_output),
         stderr = line_buffered_handler(on_output),
@@ -1334,7 +1438,7 @@ end
 function M.get_staged_files_async()
     return with_git_root({}, function(git_root)
         local result = async.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--cached", "--name-only" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--cached", "--name-only" },
             { text = true, cwd = git_root }
         )
         if result.code ~= 0 then
@@ -1350,7 +1454,7 @@ end
 function M.get_unstaged_files_async()
     return with_git_root({}, function(git_root)
         local result = async.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--name-only" },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only" },
             { text = true, cwd = git_root }
         )
         if result.code ~= 0 then
@@ -1369,10 +1473,16 @@ function M.get_changed_files_async(base, base_end)
     base = base or "HEAD"
     return with_git_root({}, function(git_root)
         if base_end then
-            local range_result = async.system(
-                { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-only", base .. "..." .. base_end },
-                { text = true, cwd = git_root }
-            )
+            local range_result = async.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "-M",
+                "--name-only",
+                base .. "..." .. base_end,
+            }, { text = true, cwd = git_root })
 
             local files = {}
             local seen = {}
@@ -1390,21 +1500,32 @@ function M.get_changed_files_async(base, base_end)
         local results = async.all({
             function()
                 return async.system(
-                    { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-only", base },
+                    { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-only", base },
                     { text = true, cwd = git_root }
                 )
             end,
             function()
-                return async.system(
-                    { "git", "-c", "core.quotepath=false", "diff", "-M", "--cached", "--name-only" },
-                    { text = true, cwd = git_root }
-                )
+                return async.system({
+                    "git",
+                    "-c",
+                    "core.quotepath=false",
+                    "--literal-pathspecs",
+                    "diff",
+                    "-M",
+                    "--cached",
+                    "--name-only",
+                }, { text = true, cwd = git_root })
             end,
             function()
-                return async.system(
-                    { "git", "-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard" },
-                    { text = true, cwd = git_root }
-                )
+                return async.system({
+                    "git",
+                    "-c",
+                    "core.quotepath=false",
+                    "--literal-pathspecs",
+                    "ls-files",
+                    "--others",
+                    "--exclude-standard",
+                }, { text = true, cwd = git_root })
             end,
         })
 
@@ -1443,10 +1564,16 @@ function M.get_all_file_statuses_async(files, base, base_end)
     end
 
     if base_end then
-        local range_result = async.system(
-            { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-status", base .. "..." .. base_end },
-            { text = true, cwd = git_root }
-        )
+        local range_result = async.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            "--name-status",
+            base .. "..." .. base_end,
+        }, { text = true, cwd = git_root })
 
         local statuses = {}
         local rename_map = {}
@@ -1472,22 +1599,33 @@ function M.get_all_file_statuses_async(files, base, base_end)
     -- HEAD mode: run all 3 git calls concurrently
     local concurrent_results = async.all({
         function()
+            return async.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+            }, { text = true, cwd = git_root })
+        end,
+        function()
             return async.system(
-                { "git", "-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard" },
+                { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-status", base },
                 { text = true, cwd = git_root }
             )
         end,
         function()
-            return async.system(
-                { "git", "-c", "core.quotepath=false", "diff", "-M", "--name-status", base },
-                { text = true, cwd = git_root }
-            )
-        end,
-        function()
-            return async.system(
-                { "git", "-c", "core.quotepath=false", "diff", "-M", "--cached", "--name-status" },
-                { text = true, cwd = git_root }
-            )
+            return async.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "-M",
+                "--cached",
+                "--name-status",
+            }, { text = true, cwd = git_root })
         end,
     })
 
@@ -1549,8 +1687,18 @@ function M.get_diff_async(file, base, base_end, opts)
 
     if base_end then
         local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
-        local cmd =
-            { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, base .. "..." .. base_end, "--", file }
+        local cmd = {
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            context_flag,
+            base .. "..." .. base_end,
+            "--",
+            file,
+        }
         local result = async.system(cmd, { text = true, cwd = git_root })
 
         if result.code ~= 0 then
@@ -1585,15 +1733,22 @@ function M.get_diff_async(file, base, base_end, opts)
     local is_staged_only = file_status == "staged_only"
     if not file_status then
         local unstaged_result = async.system(
-            { "git", "-c", "core.quotepath=false", "diff", "--name-only", "--", file },
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only", "--", file },
             { text = true, cwd = git_root }
         )
 
         if unstaged_result.code == 0 and vim.trim(unstaged_result.stdout) == "" then
-            local staged_result = async.system(
-                { "git", "-c", "core.quotepath=false", "diff", "--cached", "--name-only", "--", file },
-                { text = true, cwd = git_root }
-            )
+            local staged_result = async.system({
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "--cached",
+                "--name-only",
+                "--",
+                file,
+            }, { text = true, cwd = git_root })
             if staged_result.code == 0 and vim.trim(staged_result.stdout) ~= "" then
                 is_staged_only = true
             end
@@ -1603,9 +1758,21 @@ function M.get_diff_async(file, base, base_end, opts)
     local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
     local cmd
     if is_staged_only then
-        cmd = { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, "--cached", "--", file }
+        cmd = {
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "diff",
+            "-M",
+            context_flag,
+            "--cached",
+            "--",
+            file,
+        }
     else
-        cmd = { "git", "-c", "core.quotepath=false", "diff", "-M", context_flag, base, "--", file }
+        cmd =
+            { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", context_flag, base, "--", file }
     end
 
     local result = async.system(cmd, { text = true, cwd = git_root })
@@ -1629,7 +1796,7 @@ function M.get_file_at_rev_async(file, rev)
     end
 
     local result = async.system(
-        { "git", "-c", "core.quotepath=false", "show", rev .. ":" .. file },
+        { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "show", rev .. ":" .. file },
         { text = true, cwd = git_root }
     )
 
