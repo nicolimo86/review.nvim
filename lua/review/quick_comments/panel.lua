@@ -216,6 +216,7 @@ local function setup_keymaps(bufnr)
         end
 
         local popup_bufnr = vim.api.nvim_create_buf(false, true)
+        vim.bo[popup_bufnr].bufhidden = "wipe"
         vim.api.nvim_buf_set_lines(popup_bufnr, 0, -1, false, popup_lines)
         vim.bo[popup_bufnr].modifiable = false
 

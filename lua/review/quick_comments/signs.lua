@@ -20,6 +20,15 @@ function M.update(bufnr)
         return
     end
 
+    if not require("review.config").get().quick_comments.signs.enabled then
+        return
+    end
+
+    if qc_state.count() == 0 then
+        vim.fn.sign_unplace(SIGN_GROUP, { buffer = bufnr })
+        return
+    end
+
     -- Clear existing signs
     vim.fn.sign_unplace(SIGN_GROUP, { buffer = bufnr })
 

@@ -1266,12 +1266,10 @@ function M.commit_streaming(message, on_output, callback, description)
 
     log.info("commit_streaming:", table.concat(cmd, " "))
 
-    local handler = line_buffered_handler(on_output)
-
     vim.system(cmd, {
         cwd = git_root,
-        stdout = handler,
-        stderr = handler,
+        stdout = line_buffered_handler(on_output),
+        stderr = line_buffered_handler(on_output),
     }, function(result)
         vim.schedule(function()
             if result.code == 0 then
@@ -1296,12 +1294,10 @@ function M.amend_no_edit_streaming(on_output, callback)
         return
     end
 
-    local handler = line_buffered_handler(on_output)
-
     vim.system({ "git", "-c", "core.quotepath=false", "commit", "--amend", "--no-edit" }, {
         cwd = git_root,
-        stdout = handler,
-        stderr = handler,
+        stdout = line_buffered_handler(on_output),
+        stderr = line_buffered_handler(on_output),
     }, function(result)
         vim.schedule(function()
             if result.code == 0 then
