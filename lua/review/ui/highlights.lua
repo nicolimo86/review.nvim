@@ -19,8 +19,6 @@ local LINKS = {
     ReviewGitModified = "Changed",
     ReviewGitDeleted = "Removed",
     ReviewGitConflicted = "DiagnosticError",
-    ReviewFloatBorder = "FloatBorder",
-    ReviewFloatTitle = "FloatTitle",
     ReviewWinSeparator = "WinSeparator",
     ReviewTitle = "Title",
     ReviewFilePath = "Normal",
@@ -78,7 +76,9 @@ function M.setup()
         ReviewBranchBehind = { fg = palette.caution },
         ReviewBranchSpinner = { fg = palette.caution, bg = palette.selected },
 
+        ReviewFloatBorder = { fg = palette.text },
         ReviewFloatBorderActive = { fg = palette.positive },
+        ReviewFloatTitle = { fg = palette.text, bold = true },
         ReviewFloatTitleActive = { fg = palette.positive, bold = true },
 
         ReviewBorder = { fg = palette.border },
