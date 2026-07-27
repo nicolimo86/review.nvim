@@ -30,7 +30,7 @@ If you are not doing agent workflows, it still works as a plain diff reviewer.
 
 ## Installation
 
-The `:Review` command and the toggle keymap are both created by `setup()`, so `setup()` must run.
+`:Review` is registered by `plugin/review.lua`, so the command exists as soon as the plugin loads and the defaults in `config.lua` are already in effect. `setup()` is still worth calling: it registers the plugin's highlight groups, loads and autosaves the session and quick comments, and creates the optional global keymaps.
 
 ### lazy.nvim
 
@@ -49,13 +49,12 @@ With options:
     config = function()
         require("review").setup({
             keymaps = { toggle = "<leader>rv" },
-            tmux = { target = "CLAUDE" },
         })
     end,
 }
 ```
 
-To lazy-load, give lazy.nvim its own trigger — the plugin's own `keymaps.toggle` does not exist until `setup()` has run, so use lazy's `keys` instead of `keymaps.toggle`:
+To lazy-load, give lazy.nvim its own trigger — the plugin is not loaded until that trigger fires, so `keymaps.toggle` does not exist yet either. Use lazy's `keys` instead:
 
 ```lua
 {
@@ -112,7 +111,7 @@ lua require("review").setup({})
 | `:Review qp` | Toggle the quick comments panel |
 | `:Review log` | Open the plugin log file in a new tab |
 
-`:checkhealth review` verifies the Neovim version, git and the repository, tmux, whether `setup()` has run, and the log configuration.
+`:checkhealth review` verifies the Neovim version, git and the repository, tmux and `$TMUX`, whether `setup()` has run, the log level, and the log file path. The "`setup()` has not been called" result is a warning, not an error — the defaults are in effect either way.
 
 Lua API:
 
@@ -143,7 +142,7 @@ qc.copy()           -- copy to clipboard, then clear all quick comments
 
 ## Keymaps
 
-All keymaps are buffer-local to the review UI. Press `?` in the Files or diff pane for the in-plugin help overlay.
+All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches, Commits or Comments panel, or in the diff pane, for the in-plugin help overlay listing that panel's keymaps.
 
 ### Files panel
 
@@ -189,20 +188,20 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files or diff pa
 | `q` | Close the review |
 | `?` | Help overlay |
 
-In side-by-side mode, `c` and `dc` are only bound on the right (new) pane.
+In side-by-side mode, `c` and `dc` are only bound on the right (new) pane. A binary file renders as `Binary file — no diff to display.` instead of an empty pane.
 
 ### Comment input popup
 
 | Key | Mode | Action |
 | --- | --- | --- |
 | `<CR>` | insert, normal | Submit |
-| `<Esc>` | insert | **Submit** (not cancel) |
-| `<C-c>` | insert | **Submit** (not cancel) |
+| `<Esc>` | insert, normal | Cancel |
+| `<C-c>` | insert | Cancel |
 | `<S-CR>` | insert | Newline |
-| `<Tab>` / `<S-Tab>` | insert | Cycle comment type: Fix → Note → Question |
+| `<Tab>` / `<S-Tab>` | insert | Cycle comment type: Fix → Note → Question (diff pane comments only) |
 | `<C-t>` | insert | Template picker (diff pane comments only) |
 
-Leaving the input empty discards the comment. In the template picker, press a template's key to apply it, or `<Esc>` / `q` / `<C-t>` to back out.
+Submitting an empty input also discards the comment. The quick comment input has no types or templates, so only `<CR>`, `<Esc>`, `<C-c>` and `<S-CR>` are bound there. In the template picker, press a template's key to apply it, or `<Esc>` / `q` / `<C-t>` to back out.
 
 ### Branches panel
 
@@ -221,6 +220,7 @@ Leaving the input empty discards the comment. In the template picker, press a te
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `?` | Help overlay |
 
 ### Commits panel
 
