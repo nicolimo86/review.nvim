@@ -77,31 +77,39 @@ end
 
 ---Build source-line-to-display-line maps from render_lines
 ---@param render_lines table[]
+---@param side? "old"|"new" Restrict to one pane; omit for a unified rendering
 ---@return table old_map, table new_map, boolean has_old, boolean has_new
-local function build_line_maps(render_lines)
+local function build_line_maps(render_lines, side)
     local old_source_line_to_display = {}
     local new_source_line_to_display = {}
     local has_old_lines = false
     local has_new_lines = false
 
+    local want_old = side ~= "new"
+    local want_new = side ~= "old"
+
     for index, line in ipairs(render_lines) do
         if line.source_line then
             if
-                line.type == "delete" or (line.type == "context" and not new_source_line_to_display[line.source_line])
+                want_old
+                and (
+                    line.type == "delete"
+                    or (line.type == "context" and not new_source_line_to_display[line.source_line])
+                )
             then
                 old_source_line_to_display[line.source_line] = index
                 has_old_lines = true
             end
-            if line.type == "add" or line.type == "context" then
+            if want_new and (line.type == "add" or line.type == "context") then
                 new_source_line_to_display[line.source_line] = index
                 has_new_lines = true
             end
         elseif line.old_line or line.new_line then
-            if line.old_line and (line.type == "delete" or line.type == "context") then
+            if want_old and line.old_line and (line.type == "delete" or line.type == "context") then
                 old_source_line_to_display[line.old_line] = index
                 has_old_lines = true
             end
-            if line.new_line and (line.type == "add" or line.type == "context") then
+            if want_new and line.new_line and (line.type == "add" or line.type == "context") then
                 new_source_line_to_display[line.new_line] = index
                 has_new_lines = true
             end
@@ -248,7 +256,8 @@ local function apply_treesitter_highlights(
     file,
     line_offset,
     base_override,
-    base_end_override
+    base_end_override,
+    side
 )
     line_offset = line_offset or 0
 
@@ -264,7 +273,7 @@ local function apply_treesitter_highlights(
     local base = base_override or state.state.base
     local base_end = base_end_override or state.state.base_end
 
-    local old_map, new_map, has_old, has_new = build_line_maps(render_lines)
+    local old_map, new_map, has_old, has_new = build_line_maps(render_lines, side)
 
     local old_content = nil
     if has_old then
@@ -771,8 +780,8 @@ local function render_split_diff(old_bufnr, new_bufnr, file)
         vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
     end
 
-    apply_treesitter_highlights(old_bufnr, old_lines, old_display, file)
-    apply_treesitter_highlights(new_bufnr, new_lines, new_display, file)
+    apply_treesitter_highlights(old_bufnr, old_lines, old_display, file, nil, nil, nil, "old")
+    apply_treesitter_highlights(new_bufnr, new_lines, new_display, file, nil, nil, nil, "new")
 
     local is_new_file = parsed.file_old == "/dev/null"
     local is_deleted_file = parsed.file_new == "/dev/null"
