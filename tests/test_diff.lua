@@ -317,4 +317,22 @@ get_source_line["out of bounds returns nil nil"] = function()
     expect.equality(side, nil)
 end
 
+T["binary diff is flagged"] = function()
+    local parsed = diff.parse("diff --git a/bin.dat b/bin.dat\nBinary files a/bin.dat and b/bin.dat differ\n")
+    expect.equality(parsed.binary, true)
+    expect.equality(#parsed.hunks, 0)
+end
+
+T["non-binary diff is not flagged"] = function()
+    local parsed = diff.parse("--- a/f.txt\n+++ b/f.txt\n@@ -1 +1 @@\n-a\n+b\n")
+    expect.equality(parsed.binary, false)
+end
+
+T["crlf diff strips carriage returns"] = function()
+    local parsed = diff.parse("--- a/f.txt\r\n+++ b/f.txt\r\n@@ -1 +1 @@\r\n-a\r\n+b\r\n")
+    expect.equality(parsed.file_new, "f.txt")
+    expect.equality(parsed.hunks[1].lines[1].content, "a")
+    expect.equality(parsed.hunks[1].lines[2].content, "b")
+end
+
 return T

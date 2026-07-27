@@ -608,6 +608,20 @@ local function render_diff_async(bufnr, file, expected_generation)
 
     -- Parse diff (sync — pure CPU)
     local parsed = diff_parser.parse(result.output)
+
+    if parsed.binary and #parsed.hunks == 0 then
+        vim.bo[bufnr].readonly = false
+        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
+            file,
+            "",
+            "  Binary file — no diff to display.",
+        })
+        vim.bo[bufnr].modifiable = false
+        vim.bo[bufnr].readonly = true
+        return nil
+    end
+
     local raw_lines = diff_parser.get_render_lines(parsed)
 
     local display_lines = { file, "" }

@@ -140,8 +140,8 @@ function M.create_buffer_mapper(bufnr, registered_keymaps)
         local group = opts.group
         opts.group = nil
 
-        if registered_keymaps and opts.desc and group then
-            table.insert(registered_keymaps, { lhs = lhs, desc = opts.desc, group = group })
+        if registered_keymaps and opts.desc then
+            table.insert(registered_keymaps, { lhs = lhs, desc = opts.desc, group = group or "General" })
         end
 
         if extra_bufnrs then

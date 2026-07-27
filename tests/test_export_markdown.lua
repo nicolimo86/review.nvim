@@ -2,8 +2,8 @@ local new_set = MiniTest.new_set
 local expect = MiniTest.expect
 
 local config = require("review.config")
-local state = require("review.state")
 local markdown = require("review.export.markdown")
+local state = require("review.state")
 
 local T = new_set({
     hooks = {

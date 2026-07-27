@@ -83,4 +83,13 @@ T["get_code_fence_language"]["passes through unknown extensions"] = function()
     expect.equality(paths.get_code_fence_language("file.zig"), "zig")
 end
 
+T["get_relative_path"]["does not strip a sibling directory sharing a prefix"] = function()
+    local cwd = vim.fn.getcwd()
+    expect.equality(paths.get_relative_path(cwd .. "2/file.txt"), cwd .. "2/file.txt")
+end
+
+T["get_relative_path"]["leaves absolute paths alone outside cwd"] = function()
+    expect.equality(paths.get_relative_path("/etc/hosts"), "/etc/hosts")
+end
+
 return T

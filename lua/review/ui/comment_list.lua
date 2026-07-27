@@ -22,6 +22,13 @@ local comment_types = comment_types_module.TYPES
 
 local M = {}
 
+local registered_keymaps = {}
+
+---Show the help overlay for this panel
+local function show_help()
+    require("review.ui.help").show("Comments", registered_keymaps)
+end
+
 ---@class CommentListComponent
 ---@field bufnr number
 ---@field winid number
@@ -485,7 +492,10 @@ end
 ---Setup keymaps for the comment list buffer
 ---@param bufnr number
 local function setup_keymaps(bufnr)
-    local map = ui_util.create_buffer_mapper(bufnr)
+    registered_keymaps = {}
+    local map = ui_util.create_buffer_mapper(bufnr, registered_keymaps)
+
+    map("?", show_help, { nowait = true, desc = "Show help" })
 
     map("j", function()
         if not M.current then

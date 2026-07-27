@@ -5,6 +5,13 @@ local ui_util = require("review.ui.util")
 
 local M = {}
 
+local registered_keymaps = {}
+
+---Show the help overlay for this panel
+local function show_help()
+    require("review.ui.help").show("Commits", registered_keymaps)
+end
+
 ---@class CommitEntry
 ---@field is_head boolean
 ---@field hash string|nil
@@ -312,7 +319,10 @@ end
 ---Setup keymaps for the commit list buffer
 ---@param bufnr number
 local function setup_keymaps(bufnr)
-    local map = ui_util.create_buffer_mapper(bufnr)
+    registered_keymaps = {}
+    local map = ui_util.create_buffer_mapper(bufnr, registered_keymaps)
+
+    map("?", show_help, { nowait = true, desc = "Show help" })
 
     map("j", function()
         if not M.current then

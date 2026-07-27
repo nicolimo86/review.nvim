@@ -16,6 +16,7 @@
 ---@class ParsedDiff
 ---@field file_old string|nil Old file path
 ---@field file_new string|nil New file path
+---@field binary boolean Whether git reported the file as binary
 ---@field hunks DiffHunk[]
 
 local M = {}
@@ -42,6 +43,7 @@ function M.parse(diff_text)
     local result = {
         file_old = nil,
         file_new = nil,
+        binary = false,
         hunks = {},
     }
 
@@ -49,7 +51,11 @@ function M.parse(diff_text)
         return result
     end
 
-    local lines = vim.split(diff_text, "\n", { plain = true })
+    if diff_text:match("^Binary files ") or diff_text:match("\nBinary files ") then
+        result.binary = true
+    end
+
+    local lines = vim.split((diff_text:gsub("\r\n", "\n")), "\n", { plain = true })
     local current_hunk = nil
     local old_line = 0
     local new_line = 0
