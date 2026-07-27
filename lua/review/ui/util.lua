@@ -207,9 +207,10 @@ function M.select(opts)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
 
-    local height = #lines
-    local row = math.floor((vim.o.lines - height) / 2) - 1
-    local col = math.floor((vim.o.columns - content_width) / 2)
+    local max_height = math.max(vim.o.lines - 4, 3)
+    local height = math.min(#lines, max_height)
+    local row = math.max(0, math.floor((vim.o.lines - height) / 2) - 1)
+    local col = math.max(0, math.floor((vim.o.columns - content_width) / 2))
 
     local win_opts = {
         relative = "editor",
@@ -261,6 +262,10 @@ function M.select(opts)
         vim.api.nvim_buf_clear_namespace(bufnr, namespace, item_start_line, item_start_line + #items)
         local selected_line = item_start_line + selected - 1
         vim.api.nvim_buf_add_highlight(bufnr, namespace, "ReviewSelectItem", selected_line, 0, -1)
+
+        if vim.api.nvim_win_is_valid(winid) then
+            pcall(vim.api.nvim_win_set_cursor, winid, { selected_line + 1, 0 })
+        end
     end
 
     render_items()
