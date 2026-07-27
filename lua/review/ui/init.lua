@@ -451,6 +451,11 @@ function M.select_branch(entry)
         state.state.base_end = nil
     else
         local main_branch = git.get_main_branch()
+        if not main_branch then
+            vim.notify("No main, master or origin/HEAD branch to compare against", vim.log.levels.WARN)
+            log.warn("ui: select_branch aborted, no default branch found")
+            return
+        end
         state.state.base = main_branch
         state.state.base_end = entry.name
     end

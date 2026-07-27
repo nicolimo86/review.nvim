@@ -1015,10 +1015,10 @@ function M.get_local_branches(callback)
     )
 end
 
----Get the main branch name (checks for "main" first, then "master")
----@return string
+---Get the main branch name (checks "main", then "master", then origin/HEAD)
+---@return string|nil
 function M.get_main_branch()
-    return with_git_root("main", function(git_root)
+    return with_git_root(nil, function(git_root)
         local result = vim.system({
             "git",
             "-c",
@@ -1049,7 +1049,25 @@ function M.get_main_branch()
             return "master"
         end
 
-        return "main"
+        local head_result = vim.system({
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "--literal-pathspecs",
+            "symbolic-ref",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        }, { text = true, cwd = git_root }):wait()
+
+        if head_result.code == 0 then
+            local ref = vim.trim(head_result.stdout)
+            local branch = ref:match("^origin/(.+)$")
+            if branch and branch ~= "" then
+                return branch
+            end
+        end
+
+        return nil
     end)
 end
 
