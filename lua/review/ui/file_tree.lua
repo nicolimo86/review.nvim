@@ -1374,7 +1374,7 @@ local function setup_keymaps(bufnr, callbacks)
         end
 
         -- Debounce: wait 50ms before loading diff
-        active_timers.select_timer = vim.loop.new_timer()
+        active_timers.select_timer = vim.uv.new_timer()
         active_timers.select_timer:start(
             50,
             0,

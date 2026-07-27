@@ -20,7 +20,7 @@ function M.smooth_scroll(active_timers, direction)
     local cmd = direction == "down" and "normal! \x05" or "normal! \x19"
 
     local iteration = 0
-    active_timers.scroll_timer = vim.loop.new_timer()
+    active_timers.scroll_timer = vim.uv.new_timer()
     active_timers.scroll_timer:start(
         0,
         delay,
@@ -61,9 +61,12 @@ end
 function M.with_modifiable(bufnr, fn)
     vim.bo[bufnr].readonly = false
     vim.bo[bufnr].modifiable = true
-    fn()
+    local ok, err = pcall(fn)
     vim.bo[bufnr].modifiable = false
     vim.bo[bufnr].readonly = true
+    if not ok then
+        error(err, 0)
+    end
 end
 
 ---Create a scratch buffer configured for comment input
@@ -162,17 +165,17 @@ function M.select(opts)
 
     local max_item_width = 0
     for _, item in ipairs(items) do
-        max_item_width = math.max(max_item_width, #item)
+        max_item_width = math.max(max_item_width, vim.fn.strdisplaywidth(item))
     end
 
     local content_width = max_item_width + padding + 2
     if opts.prompt then
-        content_width = math.max(content_width, #opts.prompt + padding)
+        content_width = math.max(content_width, vim.fn.strdisplaywidth(opts.prompt) + padding)
     end
     if opts.title then
-        content_width = math.max(content_width, #opts.title + padding)
+        content_width = math.max(content_width, vim.fn.strdisplaywidth(opts.title) + padding)
     end
-    content_width = math.max(content_width, #hint_text + padding)
+    content_width = math.max(content_width, vim.fn.strdisplaywidth(hint_text) + padding)
 
     local max_width = math.floor(vim.o.columns * 0.8)
     content_width = math.min(content_width, max_width)
@@ -234,6 +237,7 @@ function M.select(opts)
     vim.wo[winid].cursorline = false
 
     local saved_guicursor = vim.o.guicursor
+    local saved_cursor_hl = vim.api.nvim_get_hl(0, { name = "Cursor" })
     vim.o.guicursor = "a:Cursor/lCursor-blinkwait0-blinkon0-blinkoff0"
     vim.api.nvim_set_hl(0, "Cursor", { blend = 100 })
     vim.schedule(function()
@@ -269,7 +273,7 @@ function M.select(opts)
         end
         closed = true
         vim.o.guicursor = saved_guicursor
-        vim.api.nvim_set_hl(0, "Cursor", { blend = 0 })
+        vim.api.nvim_set_hl(0, "Cursor", saved_cursor_hl)
         vim.cmd("redraw")
         if vim.api.nvim_win_is_valid(winid) then
             vim.api.nvim_win_close(winid, true)

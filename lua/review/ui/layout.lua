@@ -64,6 +64,7 @@ local SIDEBAR_BORDER_ROWS = (SIDEBAR_PANEL_COUNT + 1) * 2
 
 ---@type number|nil
 local focus_autocmd_id = nil
+local tab_closed_autocmd_id = nil
 
 local INACTIVE_WINHIGHLIGHT = "NormalFloat:Normal,FloatBorder:ReviewFloatBorder,FloatTitle:ReviewFloatTitle"
 local ACTIVE_SIDEBAR_WINHIGHLIGHT = "NormalFloat:Normal,FloatBorder:ReviewFloatBorderActive,"
@@ -262,10 +263,12 @@ function M.create()
 
     vim.cmd("tabnew")
 
-    local base_buf = vim.api.nvim_create_buf(false, true)
+    local base_buf = vim.api.nvim_get_current_buf()
     vim.bo[base_buf].buftype = "nofile"
+    vim.bo[base_buf].bufhidden = "wipe"
+    vim.bo[base_buf].buflisted = false
+    vim.bo[base_buf].swapfile = false
     local base_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(base_win, base_buf)
     M.base_winid = base_win
 
     local positions = calculate_positions(true)
@@ -293,8 +296,24 @@ function M.create()
         end,
     })
 
+    tab_closed_autocmd_id = vim.api.nvim_create_autocmd("TabClosed", {
+        callback = function()
+            if not M.current then
+                return
+            end
+            if M.base_winid and vim.api.nvim_win_is_valid(M.base_winid) then
+                return
+            end
+            log.info("layout: review tab closed externally, tearing down")
+            vim.schedule(function()
+                require("review.ui").close(false)
+            end)
+        end,
+    })
+
     focus_autocmd_id = vim.api.nvim_create_autocmd("WinEnter", {
         callback = function()
+            M.bounce_from_passive_window()
             if M.current and M.is_layout_window(vim.api.nvim_get_current_win()) then
                 update_border_highlights()
             end
@@ -372,6 +391,51 @@ function M.reposition()
     end
 
     reposition_diff_windows(positions.diff_view)
+end
+
+---Check if a window is part of the layout but has no keymaps to escape from
+---@param winid number
+---@return boolean
+function M.is_passive_window(winid)
+    if winid == M.base_winid then
+        return true
+    end
+    local branch_info = M.current and M.current.branch_info
+    return branch_info ~= nil and branch_info.winid == winid
+end
+
+---Move focus off a passive layout window onto the next usable one
+function M.bounce_from_passive_window()
+    if not M.current then
+        return
+    end
+
+    local current = vim.api.nvim_get_current_win()
+    if not M.is_passive_window(current) then
+        return
+    end
+
+    local wins = vim.api.nvim_tabpage_list_wins(0)
+    local start_index = 1
+    for index, winid in ipairs(wins) do
+        if winid == current then
+            start_index = index
+            break
+        end
+    end
+
+    for offset = 1, #wins do
+        local candidate = wins[((start_index - 1 + offset) % #wins) + 1]
+        if
+            not M.is_passive_window(candidate)
+            and vim.api.nvim_win_is_valid(candidate)
+            and M.is_layout_window(candidate)
+        then
+            log.debug("layout: bouncing focus off passive window", current, "to", candidate)
+            vim.api.nvim_set_current_win(candidate)
+            return
+        end
+    end
 end
 
 ---Check if a window belongs to the layout
@@ -486,14 +550,24 @@ function M.enter_split_mode()
         return
     end
 
-    local diff_win = M.current.diff_view.winid
-    if not vim.api.nvim_win_is_valid(diff_win) then
-        return
+    local stale_old = M.current.diff_view_old
+    if stale_old then
+        M.current.diff_view_old = nil
+        M.current.diff_view_new = nil
+        vim.schedule(function()
+            if vim.api.nvim_buf_is_valid(stale_old.bufnr) then
+                vim.api.nvim_buf_delete(stale_old.bufnr, { force = true })
+            end
+        end)
     end
+
+    local diff_win = M.current.diff_view.winid
 
     local prev_win = vim.api.nvim_get_current_win()
 
-    vim.api.nvim_win_close(diff_win, true)
+    if vim.api.nvim_win_is_valid(diff_win) then
+        vim.api.nvim_win_close(diff_win, true)
+    end
 
     local sidebar_visible = M.is_file_tree_visible()
     local positions = calculate_positions(sidebar_visible)
@@ -554,6 +628,10 @@ function M.exit_split_mode()
     local old_component = M.current.diff_view_old
     local new_component = M.current.diff_view_new
 
+    local prev_win = vim.api.nvim_get_current_win()
+    local was_focused = (old_component and prev_win == old_component.winid)
+        or (new_component and prev_win == new_component.winid)
+
     if new_component and vim.api.nvim_win_is_valid(new_component.winid) then
         vim.wo[new_component.winid].scrollbind = false
         vim.wo[new_component.winid].cursorbind = false
@@ -581,6 +659,10 @@ function M.exit_split_mode()
     M.current.diff_view.winid = diff_win
     M.current.diff_view_old = nil
     M.current.diff_view_new = nil
+
+    if was_focused or not vim.api.nvim_win_is_valid(prev_win) then
+        vim.api.nvim_set_current_win(diff_win)
+    end
 end
 
 ---Check if currently in split mode
@@ -623,6 +705,11 @@ function M.unmount()
         if focus_autocmd_id then
             vim.api.nvim_del_autocmd(focus_autocmd_id)
             focus_autocmd_id = nil
+        end
+
+        if tab_closed_autocmd_id then
+            pcall(vim.api.nvim_del_autocmd, tab_closed_autocmd_id)
+            tab_closed_autocmd_id = nil
         end
 
         local prev_tab = M.prev_tab

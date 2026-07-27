@@ -2,7 +2,9 @@ local git = require("review.core.git")
 
 local M = {}
 
----Get the path to a file inside .git/
+local git_dir_cache = {}
+
+---Get the path to a file inside the resolved git directory
 ---@param filename string
 ---@return string|nil
 function M.get_git_path(filename)
@@ -10,7 +12,18 @@ function M.get_git_path(filename)
     if not git_root then
         return nil
     end
-    return git_root .. "/.git/" .. filename
+
+    local git_dir = git_dir_cache[git_root]
+    if not git_dir then
+        local result = vim.system({ "git", "rev-parse", "--absolute-git-dir" }, { text = true, cwd = git_root }):wait()
+        if result.code ~= 0 then
+            return nil
+        end
+        git_dir = vim.trim(result.stdout)
+        git_dir_cache[git_root] = git_dir
+    end
+
+    return git_dir .. "/" .. filename
 end
 
 ---Read and decode a JSON file
@@ -48,13 +61,25 @@ function M.write_json_file(path, data)
         return false
     end
 
-    local file = io.open(path, "w")
+    local tmp_path = path .. ".tmp"
+    local file = io.open(tmp_path, "w")
     if not file then
         return false
     end
 
-    file:write(json)
+    local written = file:write(json)
     file:close()
+
+    if not written then
+        os.remove(tmp_path)
+        return false
+    end
+
+    if not os.rename(tmp_path, path) then
+        os.remove(tmp_path)
+        return false
+    end
+
     return true
 end
 

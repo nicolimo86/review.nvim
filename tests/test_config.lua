@@ -31,7 +31,7 @@ T["partial override merges correctly"] = function()
     expect.equality(config.get().diff.base, "main")
     expect.equality(config.get().ui.file_tree_width, 40)
     expect.equality(config.get().ui.diff_view_mode, "unified")
-    expect.equality(config.get().tmux.target, "CLAUDE")
+    expect.equality(config.get().tmux.target, "!")
 end
 
 T["deep nested override preserves siblings"] = function()

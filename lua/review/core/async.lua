@@ -1,3 +1,5 @@
+local log = require("review.core.log")
+
 local M = {}
 
 ---Run a function in a coroutine context
@@ -48,7 +50,12 @@ function M.all(functions)
 
     for index, func in ipairs(functions) do
         M.run(function()
-            results[index] = func()
+            local task_ok, value = pcall(func)
+            if not task_ok then
+                log.error("async.all task failed:", value)
+                value = { code = -1, stdout = "", stderr = tostring(value) }
+            end
+            results[index] = value
             remaining = remaining - 1
             if remaining == 0 then
                 vim.schedule(function()

@@ -277,7 +277,7 @@ local function commit_index_to_line(index)
     return math.max(1, index - 1)
 end
 
-local preview_timer = vim.loop.new_timer()
+local preview_timer = vim.uv.new_timer()
 
 ---Trigger a debounced commit preview for the entry at the current cursor line
 local function trigger_preview()

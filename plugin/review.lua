@@ -10,4 +10,4 @@ if vim.fn.has("nvim-0.10") ~= 1 then
     return
 end
 
--- The plugin is lazy-loaded - setup() must be called by the user
+require("review.commands").setup()

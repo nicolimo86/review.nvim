@@ -1,7 +1,14 @@
 local M = {}
 
+local did_setup = false
+
 ---Set up user commands
 function M.setup()
+    if did_setup then
+        return
+    end
+    did_setup = true
+
     vim.api.nvim_create_user_command("Review", function(opts)
         local args = opts.fargs
         local subcommand = args[1]
@@ -50,12 +57,13 @@ function M.setup()
         end
     end, {
         nargs = "*",
-        complete = function(_, cmdline, _)
-            local args = vim.split(cmdline, "%s+")
-            if #args == 2 then
-                return { "close", "export", "send", "commit", "pick", "qc", "qp", "log" }
+        complete = function(arg_lead, cmdline, _)
+            if #vim.split(cmdline, "%s+") ~= 2 then
+                return {}
             end
-            return {}
+            return vim.tbl_filter(function(item)
+                return vim.startswith(item, arg_lead)
+            end, { "close", "export", "send", "commit", "pick", "qc", "qp", "log" })
         end,
         desc = "Review AI-generated code changes",
     })

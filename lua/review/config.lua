@@ -22,7 +22,7 @@
 ---@field group_reviewed boolean Group reviewed files at bottom (faded)
 
 ---@class ReviewTmuxConfig
----@field target string Target window/pane name (e.g., "CLAUDE" or "CLAUDE.0")
+---@field target string Target window/pane (e.g., "!" for last active pane, or a window name)
 ---@field auto_enter boolean Whether to send Enter key after pasting
 
 ---@class ReviewQuickCommentsConfig
@@ -72,8 +72,8 @@ M.defaults = {
         group_reviewed = true,
     },
     tmux = {
-        target = "CLAUDE", -- Target window name
-        auto_enter = false, -- Don't auto-submit, let user review first
+        target = "!",
+        auto_enter = false,
     },
     quick_comments = {
         keymaps = {
@@ -112,11 +112,18 @@ M.defaults = {
 }
 
 ---@type ReviewConfig
-M.options = {}
+M.options = vim.deepcopy(M.defaults)
+
+M.did_setup = false
 
 ---@param opts? ReviewConfig
 function M.setup(opts)
+    if opts ~= nil and type(opts) ~= "table" then
+        vim.notify("review.nvim: setup() expects a table, got " .. type(opts), vim.log.levels.ERROR)
+        opts = nil
+    end
     M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
+    M.did_setup = true
 end
 
 ---@return ReviewConfig

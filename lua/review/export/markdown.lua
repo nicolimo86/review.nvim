@@ -56,8 +56,8 @@ local function get_source_context(file, line, context_count)
     end
 
     local full_path = git_root .. "/" .. file
-    local content = vim.fn.readfile(full_path)
-    if not content or #content == 0 then
+    local read_ok, content = pcall(vim.fn.readfile, full_path)
+    if not read_ok or not content or #content == 0 then
         return nil
     end
 
@@ -70,6 +70,19 @@ local function get_source_context(file, line, context_count)
     end
 
     return #context > 0 and context or nil
+end
+
+---Build a fence longer than any backtick run in the given lines
+---@param context string[]
+---@return string
+local function build_fence(context)
+    local longest = 2
+    for _, line in ipairs(context) do
+        for run in line:gmatch("`+") do
+            longest = math.max(longest, #run)
+        end
+    end
+    return string.rep("`", longest + 1)
 end
 
 ---Generate markdown export of all comments
@@ -119,21 +132,23 @@ function M.generate()
 
             local context = get_diff_context(render_lines_data, comment.line, context_count)
             if context then
-                table.insert(lines, "```" .. language)
+                local fence = build_fence(context)
+                table.insert(lines, fence .. language)
                 for _, context_line in ipairs(context) do
                     table.insert(lines, context_line)
                 end
-                table.insert(lines, "```")
+                table.insert(lines, fence)
                 table.insert(lines, "")
             else
                 local source_context = get_source_context(file, display_line, context_count)
                 if source_context then
+                    local fence = build_fence(source_context)
                     table.insert(lines, "*(no changes)*")
-                    table.insert(lines, "```" .. language)
+                    table.insert(lines, fence .. language)
                     for _, context_line in ipairs(source_context) do
                         table.insert(lines, context_line)
                     end
-                    table.insert(lines, "```")
+                    table.insert(lines, fence)
                     table.insert(lines, "")
                 end
             end
@@ -212,7 +227,7 @@ function M.to_tmux(target, silent)
         return false
     end
 
-    local tmpfile = os.tmpname()
+    local tmpfile = vim.fn.tempname()
     local file = io.open(tmpfile, "w")
     if not file then
         if not silent then
@@ -223,10 +238,7 @@ function M.to_tmux(target, silent)
     file:write(content)
     file:close()
 
-    local load_cmd = string.format("tmux load-buffer %s", tmpfile)
-    local paste_cmd = string.format("tmux paste-buffer -t %s", target)
-
-    vim.system({ "sh", "-c", load_cmd }, {}, function(load_result)
+    vim.system({ "tmux", "load-buffer", "--", tmpfile }, {}, function(load_result)
         if load_result.code ~= 0 then
             vim.schedule(function()
                 if not silent then
@@ -237,7 +249,7 @@ function M.to_tmux(target, silent)
             return
         end
 
-        vim.system({ "sh", "-c", paste_cmd }, {}, function(paste_result)
+        vim.system({ "tmux", "paste-buffer", "-t", target }, {}, function(paste_result)
             vim.schedule(function()
                 os.remove(tmpfile)
 

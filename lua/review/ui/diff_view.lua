@@ -47,6 +47,7 @@ local focused_comment_line = nil
 
 ---Augroup for comment focus CursorMoved autocmds (cleared on each file switch)
 local comment_focus_augroup = vim.api.nvim_create_augroup("review_comment_focus", { clear = false })
+local focus_return_augroup = vim.api.nvim_create_augroup("review_diff_focus_return", { clear = false })
 
 ---Namespace for treesitter syntax highlights
 local ns_syntax = vim.api.nvim_create_namespace("review_syntax")
@@ -1401,11 +1402,14 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         local ui = require("review.ui")
         ui.show_diff(state.state.current_file)
     end, { desc = "Shrink diff context", group = "View" }, all_bufnrs)
+    vim.api.nvim_clear_autocmds({ group = focus_return_augroup })
     for _, target_bufnr in ipairs(all_bufnrs) do
         vim.api.nvim_create_autocmd("BufEnter", {
+            group = focus_return_augroup,
             buffer = target_bufnr,
             callback = function()
                 vim.api.nvim_create_autocmd("WinLeave", {
+                    group = focus_return_augroup,
                     buffer = target_bufnr,
                     once = true,
                     callback = function()
@@ -1495,6 +1499,10 @@ end
 ---@param winid number
 ---@param _bufnr number
 local function apply_diff_view_win_options(winid, _bufnr)
+    if not winid or not vim.api.nvim_win_is_valid(winid) then
+        return
+    end
+
     vim.wo[winid].spell = false
     vim.wo[winid].list = false
 
@@ -2019,10 +2027,12 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
 
     pcall(vim.api.nvim_buf_set_name, bufnr, "Review: commit preview")
 
-    vim.wo[layout_component.winid].spell = false
-    vim.wo[layout_component.winid].list = false
-    vim.wo[layout_component.winid].wrap = false
-    vim.wo[layout_component.winid].linebreak = false
+    if vim.api.nvim_win_is_valid(layout_component.winid) then
+        vim.wo[layout_component.winid].spell = false
+        vim.wo[layout_component.winid].list = false
+        vim.wo[layout_component.winid].wrap = false
+        vim.wo[layout_component.winid].linebreak = false
+    end
 end
 
 ---Get the current component
