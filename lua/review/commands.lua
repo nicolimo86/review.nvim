@@ -29,7 +29,9 @@ function M.setup()
             export.to_tmux(target)
         elseif subcommand == "commit" then
             local sha = args[2]
-            if sha then
+            if sha and not require("review.core.git").is_safe_rev(sha) then
+                vim.notify("Invalid revision: " .. sha, vim.log.levels.ERROR)
+            elseif sha then
                 local was_open = ui.is_open()
                 if was_open then
                     ui.close(false)

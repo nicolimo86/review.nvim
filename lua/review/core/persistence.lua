@@ -70,9 +70,14 @@ function M.load()
         end
     end
 
+    local git = require("review.core.git")
     if data.base and not state.is_history_mode() then
-        state.state.base = data.base
-        state.state.base_end = data.base_end
+        if git.is_safe_rev(data.base) and git.is_safe_rev(data.base_end) then
+            state.state.base = data.base
+            state.state.base_end = data.base_end
+        else
+            log.warn("persistence: ignoring unsafe base in session file", tostring(data.base))
+        end
     end
 
     if data.diff_mode then

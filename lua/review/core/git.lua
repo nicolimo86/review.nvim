@@ -155,6 +155,11 @@ end
 ---@return string[]
 function M.get_changed_files(base, base_end)
     base = base or "HEAD"
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_changed_files: refusing unsafe revision")
+        return {}
+    end
+
     return with_git_root({}, function(git_root)
         local files = {}
         local seen = {}
@@ -258,6 +263,17 @@ function M.is_untracked(file)
     end)
 end
 
+---Whether a revision is safe to pass to git as a bare operand.
+---Revisions must precede "--", so one starting with "-" is parsed as an option.
+---@param rev string|nil
+---@return boolean
+function M.is_safe_rev(rev)
+    if rev == nil then
+        return true
+    end
+    return type(rev) == "string" and rev ~= "" and rev:sub(1, 1) ~= "-"
+end
+
 ---Synthesize an add-only diff for an untracked file
 ---@param git_root string
 ---@param file string File path relative to git root
@@ -332,6 +348,11 @@ end
 ---@return GitDiffResult
 function M.get_diff(file, base, base_end, opts)
     base = base or "HEAD"
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_diff: refusing unsafe revision", base, base_end)
+        return { success = false, output = "", error = "Invalid revision" }
+    end
+
     local git_root = M.get_root()
     if not git_root then
         return { success = false, output = "", error = "Not in a git repository" }
@@ -443,6 +464,11 @@ end
 ---@param base_end string End commit
 ---@return GitDiffResult
 function M.get_commit_diff(base, base_end)
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_commit_diff: refusing unsafe revision")
+        return { success = false, output = "", error = "Invalid revision" }
+    end
+
     local no_repo = { success = false, output = "", error = "Not in a git repository" }
     return with_git_root(no_repo, function(git_root)
         local context_flag = "-U" .. (require("review.state").state.diff_context or 3)
@@ -469,6 +495,11 @@ end
 ---@param base string|nil Base commit to compare against
 ---@return GitDiffResult
 function M.get_full_diff(base)
+    if not M.is_safe_rev(base) then
+        log.error("get_full_diff: refusing unsafe revision")
+        return { success = false, output = "", error = "Invalid revision" }
+    end
+
     base = base or "HEAD"
     local no_repo = { success = false, output = "", error = "Not in a git repository" }
     return with_git_root(no_repo, function(git_root)
@@ -735,6 +766,11 @@ end
 ---@return table<string, GitFileStatus> Map of file path to status
 ---@return table<string, string> Map of new_path to old_path for renamed files
 function M.get_all_file_statuses(files, base, base_end)
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_all_file_statuses: refusing unsafe revision")
+        return {}, {}
+    end
+
     base = base or "HEAD"
     local git_root = M.get_root()
     if not git_root then
@@ -1095,6 +1131,11 @@ end
 ---@param rev string|nil Git revision (default: HEAD)
 ---@return string|nil content, string|nil error
 function M.get_file_at_rev(file, rev)
+    if not M.is_safe_rev(rev) then
+        log.error("get_file_at_rev: refusing unsafe revision")
+        return nil
+    end
+
     rev = rev or "HEAD"
     local git_root = M.get_root()
     if not git_root then
@@ -1549,6 +1590,11 @@ end
 ---@return string[]
 function M.get_changed_files_async(base, base_end)
     base = base or "HEAD"
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_changed_files_async: refusing unsafe revision")
+        return {}
+    end
+
     return with_git_root({}, function(git_root)
         if base_end then
             local range_result = async.system({
@@ -1631,6 +1677,11 @@ end
 ---@return table<string, GitFileStatus> statuses
 ---@return table<string, string> rename_map
 function M.get_all_file_statuses_async(files, base, base_end)
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_all_file_statuses_async: refusing unsafe revision")
+        return {}, {}
+    end
+
     base = base or "HEAD"
     local git_root = M.get_root()
     if not git_root then
@@ -1758,6 +1809,11 @@ end
 ---@return GitDiffResult
 function M.get_diff_async(file, base, base_end, opts)
     base = base or "HEAD"
+    if not M.is_safe_rev(base) or not M.is_safe_rev(base_end) then
+        log.error("get_diff_async: refusing unsafe revision", base, base_end)
+        return { success = false, output = "", error = "Invalid revision" }
+    end
+
     local git_root = M.get_root()
     if not git_root then
         return { success = false, output = "", error = "Not in a git repository" }
@@ -1863,6 +1919,11 @@ end
 ---@param rev string|nil Git revision (default: HEAD)
 ---@return string|nil content, string|nil error
 function M.get_file_at_rev_async(file, rev)
+    if not M.is_safe_rev(rev) then
+        log.error("get_file_at_rev_async: refusing unsafe revision")
+        return nil
+    end
+
     rev = rev or "HEAD"
     local git_root = M.get_root()
     if not git_root then
