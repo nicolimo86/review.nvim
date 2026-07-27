@@ -42,8 +42,11 @@ local SIDEBAR_PANELS = {
     { name = "branch_list", title = "Branches", filetype = "review-branches", is_interactive = true },
     { name = "commit_list", title = "Commits", filetype = "review-commits", is_interactive = true },
     {
-        name = "comment_list", title = "Comments", filetype = "review-comments",
-        is_interactive = true, height_weight = 0.5,
+        name = "comment_list",
+        title = "Comments",
+        filetype = "review-comments",
+        is_interactive = true,
+        height_weight = 0.5,
     },
 }
 
@@ -602,8 +605,7 @@ function M.get_diff_view_new()
 end
 
 ---Mount the layout (no-op, create() does everything)
-function M.mount()
-end
+function M.mount() end
 
 ---Unmount the layout
 function M.unmount()

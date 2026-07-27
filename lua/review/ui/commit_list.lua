@@ -141,122 +141,114 @@ local function render(bufnr, commits, selected_index, _winid)
     end
 
     ui_util.with_modifiable(bufnr, function()
-    local lines = {}
-    local highlight_ranges = {}
-    local date_entries = {}
-    local author_color_map = build_author_color_map(commits)
+        local lines = {}
+        local highlight_ranges = {}
+        local date_entries = {}
+        local author_color_map = build_author_color_map(commits)
 
-    local render_index = 0
-    for index, entry in ipairs(commits) do
-        if not entry.is_head then
-            local is_active = index == selected_index
-            local marker = is_active and " ▎" or "  "
-            local node = is_active and "● " or "○ "
-            local type_icon, type_icon_highlight = commit_type_icon(entry.parent_count)
-            local initials = format.author_initials(entry.author)
-            local initials_segment = initials ~= "" and (initials .. " ") or ""
-            local line = marker
-                .. node
-                .. type_icon
-                .. entry.short_hash
-                .. " "
-                .. initials_segment
-                .. " "
-                .. entry.subject
-            table.insert(lines, line)
+        local render_index = 0
+        for index, entry in ipairs(commits) do
+            if not entry.is_head then
+                local is_active = index == selected_index
+                local marker = is_active and " ▎" or "  "
+                local node = is_active and "● " or "○ "
+                local type_icon, type_icon_highlight = commit_type_icon(entry.parent_count)
+                local initials = format.author_initials(entry.author)
+                local initials_segment = initials ~= "" and (initials .. " ") or ""
+                local line = marker
+                    .. node
+                    .. type_icon
+                    .. entry.short_hash
+                    .. " "
+                    .. initials_segment
+                    .. " "
+                    .. entry.subject
+                table.insert(lines, line)
 
-            local line_index = render_index
-            render_index = render_index + 1
-            local offset = 0
-            local marker_end = offset + #marker
-            local node_start = marker_end
-            local node_end = node_start + #node
-            local icon_start = node_end
-            local icon_end = icon_start + #type_icon
-            local hash_start = icon_end
-            local hash_end = hash_start + #entry.short_hash
-            local initials_start = hash_end + 1
-            local initials_end = initials_start + #initials
-            local subject_start = initials_end + 1 + 1
+                local line_index = render_index
+                render_index = render_index + 1
+                local offset = 0
+                local marker_end = offset + #marker
+                local node_start = marker_end
+                local node_end = node_start + #node
+                local icon_start = node_end
+                local icon_end = icon_start + #type_icon
+                local hash_start = icon_end
+                local hash_end = hash_start + #entry.short_hash
+                local initials_start = hash_end + 1
+                local initials_end = initials_start + #initials
+                local subject_start = initials_end + 1 + 1
 
-            table.insert(highlight_ranges, {
-                line_index = line_index,
-                marker = { offset, marker_end },
-                node = { node_start, node_end },
-                type_icon = { icon_start, icon_end },
-                type_icon_highlight = type_icon_highlight,
-                hash = { hash_start, hash_end },
-                initials = initials ~= "" and { initials_start, initials_end } or nil,
-                author = entry.author,
-                subject = { subject_start, #line },
-                is_active = is_active,
-                is_unpushed = entry.is_unpushed,
-            })
+                table.insert(highlight_ranges, {
+                    line_index = line_index,
+                    marker = { offset, marker_end },
+                    node = { node_start, node_end },
+                    type_icon = { icon_start, icon_end },
+                    type_icon_highlight = type_icon_highlight,
+                    hash = { hash_start, hash_end },
+                    initials = initials ~= "" and { initials_start, initials_end } or nil,
+                    author = entry.author,
+                    subject = { subject_start, #line },
+                    is_active = is_active,
+                    is_unpushed = entry.is_unpushed,
+                })
 
-            if entry.date then
-                table.insert(date_entries, { line_index = line_index, date = format.shorten_date(entry.date) })
+                if entry.date then
+                    table.insert(date_entries, { line_index = line_index, date = format.shorten_date(entry.date) })
+                end
             end
         end
-    end
 
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_clear_namespace(bufnr, date_extmark_ns, 0, -1)
-    vim.api.nvim_buf_clear_namespace(bufnr, row_hl_ns, 0, -1)
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_clear_namespace(bufnr, date_extmark_ns, 0, -1)
+        vim.api.nvim_buf_clear_namespace(bufnr, row_hl_ns, 0, -1)
 
-    for _, range in ipairs(highlight_ranges) do
-        if range.is_active then
-            vim.api.nvim_buf_add_highlight(
-                bufnr,
-                -1,
-                "ReviewCommitActive",
-                range.line_index,
-                range.marker[1],
-                range.marker[2]
-            )
-            vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
-                line_hl_group = "ReviewActiveRow",
+        for _, range in ipairs(highlight_ranges) do
+            if range.is_active then
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    "ReviewCommitActive",
+                    range.line_index,
+                    range.marker[1],
+                    range.marker[2]
+                )
+                vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
+                    line_hl_group = "ReviewActiveRow",
+                })
+            end
+
+            local node_hl = range.is_active and "ReviewCommitGraphActive" or "ReviewCommitGraph"
+            vim.api.nvim_buf_add_highlight(bufnr, -1, node_hl, range.line_index, range.node[1], range.node[2])
+
+            local icon_hl = range.is_active and "ReviewCommitGraphActive" or range.type_icon_highlight
+            vim.api.nvim_buf_add_highlight(bufnr, -1, icon_hl, range.line_index, range.type_icon[1], range.type_icon[2])
+
+            local hash_hl = range.is_unpushed and "ReviewCommitUnpushed" or "ReviewCommitPushed"
+            vim.api.nvim_buf_add_highlight(bufnr, -1, hash_hl, range.line_index, range.hash[1], range.hash[2])
+
+            if range.initials then
+                local author_hl = "ReviewCommitAuthor" .. (author_color_map[range.author] or 1)
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    author_hl,
+                    range.line_index,
+                    range.initials[1],
+                    range.initials[2]
+                )
+            end
+
+            local subject_hl = range.is_active and "ReviewCommitActive" or "ReviewFilePath"
+            vim.api.nvim_buf_add_highlight(bufnr, -1, subject_hl, range.line_index, range.subject[1], range.subject[2])
+        end
+
+        for _, date_entry in ipairs(date_entries) do
+            vim.api.nvim_buf_set_extmark(bufnr, date_extmark_ns, date_entry.line_index, 0, {
+                virt_text = { { date_entry.date .. " ", "ReviewCommitDate" } },
+                virt_text_pos = "right_align",
             })
         end
-
-        local node_hl = range.is_active and "ReviewCommitGraphActive" or "ReviewCommitGraph"
-        vim.api.nvim_buf_add_highlight(bufnr, -1, node_hl, range.line_index, range.node[1], range.node[2])
-
-        local icon_hl = range.is_active and "ReviewCommitGraphActive" or range.type_icon_highlight
-        vim.api.nvim_buf_add_highlight(
-            bufnr,
-            -1,
-            icon_hl,
-            range.line_index,
-            range.type_icon[1],
-            range.type_icon[2]
-        )
-
-        local hash_hl = range.is_unpushed and "ReviewCommitUnpushed" or "ReviewCommitPushed"
-        vim.api.nvim_buf_add_highlight(bufnr, -1, hash_hl, range.line_index, range.hash[1], range.hash[2])
-
-        if range.initials then
-            local author_hl = "ReviewCommitAuthor" .. (author_color_map[range.author] or 1)
-            vim.api.nvim_buf_add_highlight(
-                bufnr,
-                -1,
-                author_hl,
-                range.line_index,
-                range.initials[1],
-                range.initials[2]
-            )
-        end
-
-        local subject_hl = range.is_active and "ReviewCommitActive" or "ReviewFilePath"
-        vim.api.nvim_buf_add_highlight(bufnr, -1, subject_hl, range.line_index, range.subject[1], range.subject[2])
-    end
-
-    for _, date_entry in ipairs(date_entries) do
-        vim.api.nvim_buf_set_extmark(bufnr, date_extmark_ns, date_entry.line_index, 0, {
-            virt_text = { { date_entry.date .. " ", "ReviewCommitDate" } },
-            virt_text_pos = "right_align",
-        })
-    end
-
     end)
 end
 

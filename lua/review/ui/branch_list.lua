@@ -92,107 +92,116 @@ local function render(bufnr, branches, selected_index, _winid, sync_counts)
     sync_counts = sync_counts or {}
 
     ui_util.with_modifiable(bufnr, function()
-    local lines = {}
-    local highlight_ranges = {}
+        local lines = {}
+        local highlight_ranges = {}
 
-    for index, entry in ipairs(branches) do
-        local is_active = index == selected_index
-        local marker = is_active and " ▎" or "  "
-        local node = is_active and "● " or "○ "
-        local head_suffix = entry.is_current and " HEAD" or ""
-        local sync_suffix, ahead_str, behind_str = build_sync_suffix(sync_counts, entry.name)
+        for index, entry in ipairs(branches) do
+            local is_active = index == selected_index
+            local marker = is_active and " ▎" or "  "
+            local node = is_active and "● " or "○ "
+            local head_suffix = entry.is_current and " HEAD" or ""
+            local sync_suffix, ahead_str, behind_str = build_sync_suffix(sync_counts, entry.name)
 
-        local line = marker .. node .. entry.name .. head_suffix .. sync_suffix
-        table.insert(lines, line)
+            local line = marker .. node .. entry.name .. head_suffix .. sync_suffix
+            table.insert(lines, line)
 
-        local offset = 0
-        local marker_end = offset + #marker
-        local node_start = marker_end
-        local node_end = node_start + #node
-        local name_start = node_end
-        local name_end = name_start + #entry.name
-        local head_label_start = name_end
-        local head_label_end = head_label_start + #head_suffix
-        local ahead_start = head_label_end
-        local ahead_end = ahead_start + (ahead_str and #ahead_str or 0)
-        local behind_start = ahead_end
-        local behind_end = behind_start + (behind_str and #behind_str or 0)
+            local offset = 0
+            local marker_end = offset + #marker
+            local node_start = marker_end
+            local node_end = node_start + #node
+            local name_start = node_end
+            local name_end = name_start + #entry.name
+            local head_label_start = name_end
+            local head_label_end = head_label_start + #head_suffix
+            local ahead_start = head_label_end
+            local ahead_end = ahead_start + (ahead_str and #ahead_str or 0)
+            local behind_start = ahead_end
+            local behind_end = behind_start + (behind_str and #behind_str or 0)
 
-        table.insert(highlight_ranges, {
-            line_index = index - 1,
-            marker = { offset, marker_end },
-            node = { node_start, node_end },
-            name = { name_start, name_end },
-            head_label = entry.is_current and { head_label_start, head_label_end } or nil,
-            ahead = (ahead_str and #ahead_str > 0) and { ahead_start, ahead_end } or nil,
-            behind = (behind_str and #behind_str > 0) and { behind_start, behind_end } or nil,
-            is_active = is_active,
-            is_current = entry.is_current,
-            is_main = entry.is_main,
-        })
-    end
-
-    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_clear_namespace(bufnr, row_hl_ns, 0, -1)
-
-    for _, range in ipairs(highlight_ranges) do
-        if range.is_active then
-            vim.api.nvim_buf_add_highlight(
-                bufnr,
-                -1,
-                "ReviewBranchActive",
-                range.line_index,
-                range.marker[1],
-                range.marker[2]
-            )
-            vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
-                line_hl_group = "ReviewActiveRow",
-            })
-        elseif range.is_current then
-            vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
-                line_hl_group = "ReviewBranchCurrentRow",
+            table.insert(highlight_ranges, {
+                line_index = index - 1,
+                marker = { offset, marker_end },
+                node = { node_start, node_end },
+                name = { name_start, name_end },
+                head_label = entry.is_current and { head_label_start, head_label_end } or nil,
+                ahead = (ahead_str and #ahead_str > 0) and { ahead_start, ahead_end } or nil,
+                behind = (behind_str and #behind_str > 0) and { behind_start, behind_end } or nil,
+                is_active = is_active,
+                is_current = entry.is_current,
+                is_main = entry.is_main,
             })
         end
 
-        local node_hl = range.is_active and "ReviewBranchActive" or "ReviewBranchCurrent"
-        vim.api.nvim_buf_add_highlight(bufnr, -1, node_hl, range.line_index, range.node[1], range.node[2])
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_clear_namespace(bufnr, row_hl_ns, 0, -1)
 
-        local name_highlight
-        if range.is_active then
-            name_highlight = "ReviewBranchActive"
-        elseif range.is_current then
-            name_highlight = "ReviewBranchCurrent"
-        elseif range.is_main then
-            name_highlight = "ReviewBranchMain"
-        else
-            name_highlight = "ReviewBranchName"
+        for _, range in ipairs(highlight_ranges) do
+            if range.is_active then
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    "ReviewBranchActive",
+                    range.line_index,
+                    range.marker[1],
+                    range.marker[2]
+                )
+                vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
+                    line_hl_group = "ReviewActiveRow",
+                })
+            elseif range.is_current then
+                vim.api.nvim_buf_set_extmark(bufnr, row_hl_ns, range.line_index, 0, {
+                    line_hl_group = "ReviewBranchCurrentRow",
+                })
+            end
+
+            local node_hl = range.is_active and "ReviewBranchActive" or "ReviewBranchCurrent"
+            vim.api.nvim_buf_add_highlight(bufnr, -1, node_hl, range.line_index, range.node[1], range.node[2])
+
+            local name_highlight
+            if range.is_active then
+                name_highlight = "ReviewBranchActive"
+            elseif range.is_current then
+                name_highlight = "ReviewBranchCurrent"
+            elseif range.is_main then
+                name_highlight = "ReviewBranchMain"
+            else
+                name_highlight = "ReviewBranchName"
+            end
+            vim.api.nvim_buf_add_highlight(bufnr, -1, name_highlight, range.line_index, range.name[1], range.name[2])
+
+            if range.head_label then
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    "ReviewHeadLabel",
+                    range.line_index,
+                    range.head_label[1],
+                    range.head_label[2]
+                )
+            end
+
+            if range.ahead then
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    "ReviewBranchAhead",
+                    range.line_index,
+                    range.ahead[1],
+                    range.ahead[2]
+                )
+            end
+
+            if range.behind then
+                vim.api.nvim_buf_add_highlight(
+                    bufnr,
+                    -1,
+                    "ReviewBranchBehind",
+                    range.line_index,
+                    range.behind[1],
+                    range.behind[2]
+                )
+            end
         end
-        vim.api.nvim_buf_add_highlight(bufnr, -1, name_highlight, range.line_index, range.name[1], range.name[2])
-
-        if range.head_label then
-            vim.api.nvim_buf_add_highlight(
-                bufnr,
-                -1,
-                "ReviewHeadLabel",
-                range.line_index,
-                range.head_label[1],
-                range.head_label[2]
-            )
-        end
-
-        if range.ahead then
-            vim.api.nvim_buf_add_highlight(
-                bufnr, -1, "ReviewBranchAhead", range.line_index, range.ahead[1], range.ahead[2]
-            )
-        end
-
-        if range.behind then
-            vim.api.nvim_buf_add_highlight(
-                bufnr, -1, "ReviewBranchBehind", range.line_index, range.behind[1], range.behind[2]
-            )
-        end
-    end
-
     end)
 end
 
@@ -312,24 +321,28 @@ local function setup_keymaps(bufnr)
         local frame = 0
 
         pull_spinner_timer = vim.uv.new_timer()
-        pull_spinner_timer:start(0, 80, vim.schedule_wrap(function()
-            if not M.current or not vim.api.nvim_buf_is_valid(M.current.bufnr) then
-                if pull_spinner_timer then
-                    pull_spinner_timer:stop()
-                    pull_spinner_timer:close()
-                    pull_spinner_timer = nil
+        pull_spinner_timer:start(
+            0,
+            80,
+            vim.schedule_wrap(function()
+                if not M.current or not vim.api.nvim_buf_is_valid(M.current.bufnr) then
+                    if pull_spinner_timer then
+                        pull_spinner_timer:stop()
+                        pull_spinner_timer:close()
+                        pull_spinner_timer = nil
+                    end
+                    return
                 end
-                return
-            end
 
-            frame = (frame % #SPINNER_FRAMES) + 1
+                frame = (frame % #SPINNER_FRAMES) + 1
 
-            vim.api.nvim_buf_clear_namespace(M.current.bufnr, pull_ns, pull_line_index, pull_line_index + 1)
-            vim.api.nvim_buf_set_extmark(M.current.bufnr, pull_ns, pull_line_index, 0, {
-                virt_text = { { " " .. SPINNER_FRAMES[frame], "ReviewBranchSpinner" } },
-                virt_text_pos = "eol",
-            })
-        end))
+                vim.api.nvim_buf_clear_namespace(M.current.bufnr, pull_ns, pull_line_index, pull_line_index + 1)
+                vim.api.nvim_buf_set_extmark(M.current.bufnr, pull_ns, pull_line_index, 0, {
+                    virt_text = { { " " .. SPINNER_FRAMES[frame], "ReviewBranchSpinner" } },
+                    virt_text_pos = "eol",
+                })
+            end)
+        )
 
         git.pull(function(success, err)
             if pull_spinner_timer then
@@ -380,24 +393,33 @@ local function setup_keymaps(bufnr)
         local frame = 0
 
         checkout_spinner_timer = vim.uv.new_timer()
-        checkout_spinner_timer:start(0, 80, vim.schedule_wrap(function()
-            if not M.current or not vim.api.nvim_buf_is_valid(M.current.bufnr) then
-                if checkout_spinner_timer then
-                    checkout_spinner_timer:stop()
-                    checkout_spinner_timer:close()
-                    checkout_spinner_timer = nil
+        checkout_spinner_timer:start(
+            0,
+            80,
+            vim.schedule_wrap(function()
+                if not M.current or not vim.api.nvim_buf_is_valid(M.current.bufnr) then
+                    if checkout_spinner_timer then
+                        checkout_spinner_timer:stop()
+                        checkout_spinner_timer:close()
+                        checkout_spinner_timer = nil
+                    end
+                    return
                 end
-                return
-            end
 
-            frame = (frame % #SPINNER_FRAMES) + 1
+                frame = (frame % #SPINNER_FRAMES) + 1
 
-            vim.api.nvim_buf_clear_namespace(M.current.bufnr, checkout_ns, checkout_line_index, checkout_line_index + 1)
-            vim.api.nvim_buf_set_extmark(M.current.bufnr, checkout_ns, checkout_line_index, 0, {
-                virt_text = { { " " .. SPINNER_FRAMES[frame], "ReviewBranchSpinner" } },
-                virt_text_pos = "eol",
-            })
-        end))
+                vim.api.nvim_buf_clear_namespace(
+                    M.current.bufnr,
+                    checkout_ns,
+                    checkout_line_index,
+                    checkout_line_index + 1
+                )
+                vim.api.nvim_buf_set_extmark(M.current.bufnr, checkout_ns, checkout_line_index, 0, {
+                    virt_text = { { " " .. SPINNER_FRAMES[frame], "ReviewBranchSpinner" } },
+                    virt_text_pos = "eol",
+                })
+            end)
+        )
 
         git.has_dirty_worktree(function(is_dirty)
             if is_dirty then

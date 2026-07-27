@@ -86,8 +86,8 @@ function M.get_changed_files(base, base_end)
         end
 
         -- Get unstaged changes
-        local unstaged =
-            vim.system({ "git", "diff", "-M", "--name-only", base }, { text = true, cwd = git_root }):wait()
+        local unstaged = vim.system({ "git", "diff", "-M", "--name-only", base }, { text = true, cwd = git_root })
+            :wait()
 
         if unstaged.code == 0 then
             for line in parse_lines(unstaged.stdout) do
@@ -244,8 +244,7 @@ function M.get_commit_diff(base, base_end)
         local result = vim.system(
             { "git", "diff", "-M", context_flag, base .. "..." .. base_end },
             { text = true, cwd = git_root }
-        )
-            :wait()
+        ):wait()
 
         if result.code ~= 0 then
             return { success = false, output = "", error = result.stderr }
@@ -332,8 +331,11 @@ end
 ---@return boolean
 function M.is_staged(file)
     return with_git_root(false, function(git_root)
-        local result =
-            vim.system({ "git", "diff", "--cached", "--name-only", "--", file }, { text = true, cwd = git_root }):wait()
+        local result = vim.system(
+            { "git", "diff", "--cached", "--name-only", "--", file },
+            { text = true, cwd = git_root }
+        )
+            :wait()
 
         if result.code ~= 0 then
             return false
@@ -413,36 +415,18 @@ function M.get_file_status(file, base)
     return with_git_root("modified", function(git_root)
         -- Check if untracked (new file) - only for HEAD comparison
         if base == "HEAD" and M.is_untracked(file) then
-        return "added"
-    end
-
-    -- Check file status relative to base
-    local result = vim.system(
-        { "git", "diff", "-M", "--name-status", base, "--", file },
-        { text = true, cwd = git_root }
-    )
-        :wait()
-
-    if result.code == 0 and result.stdout ~= "" then
-        local status_char = result.stdout:sub(1, 1)
-        if status_char == "D" then
-            return "deleted"
-        elseif status_char == "A" then
             return "added"
-        elseif status_char == "R" then
-            return "renamed"
         end
-    end
 
-    -- Also check staged changes (only for HEAD comparison)
-    if base == "HEAD" then
-        local staged_result = vim.system(
-            { "git", "diff", "-M", "--cached", "--name-status", "--", file },
+        -- Check file status relative to base
+        local result = vim.system(
+            { "git", "diff", "-M", "--name-status", base, "--", file },
             { text = true, cwd = git_root }
-        ):wait()
+        )
+            :wait()
 
-        if staged_result.code == 0 and staged_result.stdout ~= "" then
-            local status_char = staged_result.stdout:sub(1, 1)
+        if result.code == 0 and result.stdout ~= "" then
+            local status_char = result.stdout:sub(1, 1)
             if status_char == "D" then
                 return "deleted"
             elseif status_char == "A" then
@@ -451,7 +435,25 @@ function M.get_file_status(file, base)
                 return "renamed"
             end
         end
-    end
+
+        -- Also check staged changes (only for HEAD comparison)
+        if base == "HEAD" then
+            local staged_result = vim.system(
+                { "git", "diff", "-M", "--cached", "--name-status", "--", file },
+                { text = true, cwd = git_root }
+            ):wait()
+
+            if staged_result.code == 0 and staged_result.stdout ~= "" then
+                local status_char = staged_result.stdout:sub(1, 1)
+                if status_char == "D" then
+                    return "deleted"
+                elseif status_char == "A" then
+                    return "added"
+                elseif status_char == "R" then
+                    return "renamed"
+                end
+            end
+        end
 
         return "modified"
     end)
@@ -686,8 +688,7 @@ function M.get_main_branch()
         local result = vim.system(
             { "git", "rev-parse", "--verify", "--quiet", "refs/heads/main" },
             { text = true, cwd = git_root }
-        )
-            :wait()
+        ):wait()
 
         if result.code == 0 then
             return "main"
@@ -797,19 +798,15 @@ function M.amend_no_edit(callback)
         return
     end
 
-    vim.system(
-        { "git", "commit", "--amend", "--no-edit" },
-        { text = true, cwd = git_root },
-        function(result)
-            vim.schedule(function()
-                if result.code == 0 then
-                    callback(true, nil)
-                else
-                    callback(false, vim.trim(result.stderr))
-                end
-            end)
-        end
-    )
+    vim.system({ "git", "commit", "--amend", "--no-edit" }, { text = true, cwd = git_root }, function(result)
+        vim.schedule(function()
+            if result.code == 0 then
+                callback(true, nil)
+            else
+                callback(false, vim.trim(result.stderr))
+            end
+        end)
+    end)
 end
 
 ---Soft reset HEAD (uncommit last commit, keeping changes staged)
@@ -821,19 +818,15 @@ function M.soft_reset_head(callback)
         return
     end
 
-    vim.system(
-        { "git", "reset", "--soft", "HEAD~1" },
-        { text = true, cwd = git_root },
-        function(result)
-            vim.schedule(function()
-                if result.code == 0 then
-                    callback(true, nil)
-                else
-                    callback(false, vim.trim(result.stderr))
-                end
-            end)
-        end
-    )
+    vim.system({ "git", "reset", "--soft", "HEAD~1" }, { text = true, cwd = git_root }, function(result)
+        vim.schedule(function()
+            if result.code == 0 then
+                callback(true, nil)
+            else
+                callback(false, vim.trim(result.stderr))
+            end
+        end)
+    end)
 end
 
 ---Get file content at a specific revision
@@ -878,10 +871,7 @@ end
 ---@return table<string, boolean> Set of commit hashes that are unpushed
 function M.get_unpushed_hashes()
     return with_git_root({}, function(git_root)
-        local result = vim.system(
-            { "git", "rev-list", "@{u}..HEAD" },
-            { text = true, cwd = git_root }
-        ):wait()
+        local result = vim.system({ "git", "rev-list", "@{u}..HEAD" }, { text = true, cwd = git_root }):wait()
 
         if result.code ~= 0 then
             return {}
@@ -1263,53 +1253,52 @@ end
 function M.get_changed_files_async(base, base_end)
     base = base or "HEAD"
     return with_git_root({}, function(git_root)
+        if base_end then
+            local range_result = async.system(
+                { "git", "diff", "-M", "--name-only", base .. "..." .. base_end },
+                { text = true, cwd = git_root }
+            )
 
-    if base_end then
-        local range_result = async.system(
-            { "git", "diff", "-M", "--name-only", base .. "..." .. base_end },
-            { text = true, cwd = git_root }
-        )
+            local files = {}
+            local seen = {}
+            if range_result.code == 0 then
+                for line in parse_lines(range_result.stdout) do
+                    if line ~= "" and not seen[line] then
+                        seen[line] = true
+                        table.insert(files, line)
+                    end
+                end
+            end
+            return files
+        end
+
+        local results = async.all({
+            function()
+                return async.system({ "git", "diff", "-M", "--name-only", base }, { text = true, cwd = git_root })
+            end,
+            function()
+                return async.system({ "git", "diff", "-M", "--cached", "--name-only" }, { text = true, cwd = git_root })
+            end,
+            function()
+                return async.system(
+                    { "git", "ls-files", "--others", "--exclude-standard" },
+                    { text = true, cwd = git_root }
+                )
+            end,
+        })
 
         local files = {}
         local seen = {}
-        if range_result.code == 0 then
-            for line in parse_lines(range_result.stdout) do
-                if line ~= "" and not seen[line] then
-                    seen[line] = true
-                    table.insert(files, line)
+        for _, result in ipairs(results) do
+            if result.code == 0 then
+                for line in parse_lines(result.stdout) do
+                    if line ~= "" and not seen[line] then
+                        seen[line] = true
+                        table.insert(files, line)
+                    end
                 end
             end
         end
-        return files
-    end
-
-    local results = async.all({
-        function()
-            return async.system({ "git", "diff", "-M", "--name-only", base }, { text = true, cwd = git_root })
-        end,
-        function()
-            return async.system({ "git", "diff", "-M", "--cached", "--name-only" }, { text = true, cwd = git_root })
-        end,
-        function()
-            return async.system(
-                { "git", "ls-files", "--others", "--exclude-standard" },
-                { text = true, cwd = git_root }
-            )
-        end,
-    })
-
-    local files = {}
-    local seen = {}
-    for _, result in ipairs(results) do
-        if result.code == 0 then
-            for line in parse_lines(result.stdout) do
-                if line ~= "" and not seen[line] then
-                    seen[line] = true
-                    table.insert(files, line)
-                end
-            end
-        end
-    end
 
         return files
     end)

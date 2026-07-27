@@ -208,7 +208,7 @@ local function build_tree_nodes(comments)
             local is_last = item_index == #items
 
             if item.type == "dir" then
-                    local comment_count = 0
+                local comment_count = 0
                 local function count_comments(sub_node)
                     if sub_node._files then
                         for _, file_comments in pairs(sub_node._files) do

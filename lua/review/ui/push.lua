@@ -28,17 +28,21 @@ local function create_spinner(label)
 
     local frame = 0
     local timer = vim.uv.new_timer()
-    timer:start(0, 80, vim.schedule_wrap(function()
-        if not vim.api.nvim_buf_is_valid(popup_buf) then
-            timer:stop()
-            timer:close()
-            return
-        end
-        frame = (frame % #SPINNER_FRAMES) + 1
-        vim.api.nvim_buf_set_lines(popup_buf, 0, 1, false, {
-            " " .. SPINNER_FRAMES[frame] .. " " .. label,
-        })
-    end))
+    timer:start(
+        0,
+        80,
+        vim.schedule_wrap(function()
+            if not vim.api.nvim_buf_is_valid(popup_buf) then
+                timer:stop()
+                timer:close()
+                return
+            end
+            frame = (frame % #SPINNER_FRAMES) + 1
+            vim.api.nvim_buf_set_lines(popup_buf, 0, 1, false, {
+                " " .. SPINNER_FRAMES[frame] .. " " .. label,
+            })
+        end)
+    )
 
     return {
         close = function()
@@ -58,9 +62,7 @@ end
 ---@param err string
 ---@return boolean
 local function is_push_rejected(err)
-    return err:find("rejected") ~= nil
-        or err:find("non%-fast%-forward") ~= nil
-        or err:find("fetch first") ~= nil
+    return err:find("rejected") ~= nil or err:find("non%-fast%-forward") ~= nil or err:find("fetch first") ~= nil
 end
 
 ---Push to remote with a small centered spinner popup

@@ -60,8 +60,7 @@ function M.add()
     vim.wo[input_win].wrap = true
     vim.wo[input_win].linebreak = true
 
-    local get_current_type =
-        ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
+    local get_current_type = ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
 
     local function close_input()
         if vim.api.nvim_win_is_valid(input_win) then

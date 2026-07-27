@@ -34,125 +34,125 @@ function M.render()
 
     local ui_util = require("review.ui.util")
     ui_util.with_modifiable(panel.bufnr, function()
-    vim.api.nvim_buf_clear_namespace(panel.bufnr, ns_panel, 0, -1)
+        vim.api.nvim_buf_clear_namespace(panel.bufnr, ns_panel, 0, -1)
 
-    local panel_width = 48
-    if panel.winid and vim.api.nvim_win_is_valid(panel.winid) then
-        panel_width = vim.api.nvim_win_get_width(panel.winid)
-    end
+        local panel_width = 48
+        if panel.winid and vim.api.nvim_win_is_valid(panel.winid) then
+            panel_width = vim.api.nvim_win_get_width(panel.winid)
+        end
 
-    local lines = {}
-    local highlights = {}
-    panel.line_to_comment = {}
+        local lines = {}
+        local highlights = {}
+        panel.line_to_comment = {}
 
-    local count = qc_state.count()
+        local count = qc_state.count()
 
-    -- Header
-    table.insert(lines, " Quick Comments (" .. count .. ")")
-    table.insert(highlights, { line = 0, col = 0, end_col = #lines[1], hl = "ReviewTitle" })
-    table.insert(lines, string.rep("─", panel_width))
-    table.insert(highlights, { line = 1, col = 0, end_col = #lines[2], hl = "ReviewBorder" })
+        -- Header
+        table.insert(lines, " Quick Comments (" .. count .. ")")
+        table.insert(highlights, { line = 0, col = 0, end_col = #lines[1], hl = "ReviewTitle" })
+        table.insert(lines, string.rep("─", panel_width))
+        table.insert(highlights, { line = 1, col = 0, end_col = #lines[2], hl = "ReviewBorder" })
 
-    if count > 0 then
-        local comments_by_file = qc_state.get_all()
-        local files = qc_state.get_files()
+        if count > 0 then
+            local comments_by_file = qc_state.get_all()
+            local files = qc_state.get_files()
 
-        local type_order = { "fix", "note", "question" }
+            local type_order = { "fix", "note", "question" }
 
-        for _, file in ipairs(files) do
-            local comments = comments_by_file[file]
-            local rel_path = paths.get_relative_path(file)
+            for _, file in ipairs(files) do
+                local comments = comments_by_file[file]
+                local rel_path = paths.get_relative_path(file)
 
-            -- File header
-            table.insert(lines, "")
-            local filename = vim.fn.fnamemodify(rel_path, ":t")
-            local dir_path = vim.fn.fnamemodify(rel_path, ":h")
-            if dir_path == "." then
-                dir_path = ""
-            else
-                dir_path = dir_path .. "/"
-            end
-
-            local max_width = panel_width
-            local file_line = " " .. filename
-            if #dir_path > 0 then
-                local separator = " │ "
-                local remaining = max_width - #file_line - #separator
-                if remaining >= #dir_path then
-                    file_line = file_line .. separator .. dir_path
-                elseif remaining > 3 then
-                    file_line = file_line .. separator .. dir_path:sub(1, remaining - 3) .. "..."
+                -- File header
+                table.insert(lines, "")
+                local filename = vim.fn.fnamemodify(rel_path, ":t")
+                local dir_path = vim.fn.fnamemodify(rel_path, ":h")
+                if dir_path == "." then
+                    dir_path = ""
+                else
+                    dir_path = dir_path .. "/"
                 end
-            end
 
-            table.insert(lines, file_line)
-            local line_idx = #lines - 1
-            local name_end = #filename + 1
-            table.insert(highlights, { line = line_idx, col = 0, end_col = name_end, hl = "ReviewFilePath" })
-            if #file_line > name_end then
-                table.insert(highlights, { line = line_idx, col = name_end, end_col = #file_line, hl = "Comment" })
-            end
-
-            -- Group comments by type
-            local grouped = {}
-            for _, comment in ipairs(comments) do
-                local comment_type = comment.type
-                if not grouped[comment_type] then
-                    grouped[comment_type] = {}
-                end
-                table.insert(grouped[comment_type], comment)
-            end
-
-            -- Render each type group
-            for _, type_key in ipairs(type_order) do
-                local group = grouped[type_key]
-                if group then
-                    table.insert(lines, "")
-                    local type_info = comment_types[type_key]
-                    local subheader = "  " .. type_info.icon .. " " .. type_info.label
-                    table.insert(lines, subheader)
-                    line_idx = #lines - 1
-                    table.insert(
-                        highlights,
-                        { line = line_idx, col = 0, end_col = #subheader, hl = type_info.highlight }
-                    )
-
-                    for _, comment in ipairs(group) do
-                        local line_prefix = string.format("  L%-4d ", comment.line)
-                        local text = comment.text:gsub("\n", " ")
-                        local comment_line = line_prefix .. text
-                        if #comment_line > panel_width then
-                            comment_line = comment_line:sub(1, panel_width - 3) .. "..."
-                        end
-                        table.insert(lines, comment_line)
-                        line_idx = #lines - 1
-                        table.insert(highlights, {
-                            line = line_idx,
-                            col = 0,
-                            end_col = #line_prefix,
-                            hl = "ReviewFooterText",
-                        })
-                        panel.line_to_comment[line_idx + 1] = comment
+                local max_width = panel_width
+                local file_line = " " .. filename
+                if #dir_path > 0 then
+                    local separator = " │ "
+                    local remaining = max_width - #file_line - #separator
+                    if remaining >= #dir_path then
+                        file_line = file_line .. separator .. dir_path
+                    elseif remaining > 3 then
+                        file_line = file_line .. separator .. dir_path:sub(1, remaining - 3) .. "..."
                     end
                 end
+
+                table.insert(lines, file_line)
+                local line_idx = #lines - 1
+                local name_end = #filename + 1
+                table.insert(highlights, { line = line_idx, col = 0, end_col = name_end, hl = "ReviewFilePath" })
+                if #file_line > name_end then
+                    table.insert(highlights, { line = line_idx, col = name_end, end_col = #file_line, hl = "Comment" })
+                end
+
+                -- Group comments by type
+                local grouped = {}
+                for _, comment in ipairs(comments) do
+                    local comment_type = comment.type
+                    if not grouped[comment_type] then
+                        grouped[comment_type] = {}
+                    end
+                    table.insert(grouped[comment_type], comment)
+                end
+
+                -- Render each type group
+                for _, type_key in ipairs(type_order) do
+                    local group = grouped[type_key]
+                    if group then
+                        table.insert(lines, "")
+                        local type_info = comment_types[type_key]
+                        local subheader = "  " .. type_info.icon .. " " .. type_info.label
+                        table.insert(lines, subheader)
+                        line_idx = #lines - 1
+                        table.insert(
+                            highlights,
+                            { line = line_idx, col = 0, end_col = #subheader, hl = type_info.highlight }
+                        )
+
+                        for _, comment in ipairs(group) do
+                            local line_prefix = string.format("  L%-4d ", comment.line)
+                            local text = comment.text:gsub("\n", " ")
+                            local comment_line = line_prefix .. text
+                            if #comment_line > panel_width then
+                                comment_line = comment_line:sub(1, panel_width - 3) .. "..."
+                            end
+                            table.insert(lines, comment_line)
+                            line_idx = #lines - 1
+                            table.insert(highlights, {
+                                line = line_idx,
+                                col = 0,
+                                end_col = #line_prefix,
+                                hl = "ReviewFooterText",
+                            })
+                            panel.line_to_comment[line_idx + 1] = comment
+                        end
+                    end
+                end
+
+                table.insert(lines, "")
             end
-
-            table.insert(lines, "")
         end
-    end
 
-    -- Footer with keymaps
-    table.insert(lines, string.rep("─", panel_width))
-    table.insert(highlights, { line = #lines - 1, col = 0, end_col = panel_width * 3, hl = "ReviewBorder" })
-    table.insert(lines, " ⏎ jump  L preview  d delete  e edit  c copy  q close")
-    table.insert(highlights, { line = #lines - 1, col = 0, end_col = #lines[#lines], hl = "ReviewFooterText" })
+        -- Footer with keymaps
+        table.insert(lines, string.rep("─", panel_width))
+        table.insert(highlights, { line = #lines - 1, col = 0, end_col = panel_width * 3, hl = "ReviewBorder" })
+        table.insert(lines, " ⏎ jump  L preview  d delete  e edit  c copy  q close")
+        table.insert(highlights, { line = #lines - 1, col = 0, end_col = #lines[#lines], hl = "ReviewFooterText" })
 
-    vim.api.nvim_buf_set_lines(panel.bufnr, 0, -1, false, lines)
+        vim.api.nvim_buf_set_lines(panel.bufnr, 0, -1, false, lines)
 
-    -- Apply highlights
-    for _, hl in ipairs(highlights) do
-        vim.api.nvim_buf_add_highlight(panel.bufnr, ns_panel, hl.hl, hl.line, hl.col, hl.end_col)
-    end
+        -- Apply highlights
+        for _, hl in ipairs(highlights) do
+            vim.api.nvim_buf_add_highlight(panel.bufnr, ns_panel, hl.hl, hl.line, hl.col, hl.end_col)
+        end
     end)
 end
 

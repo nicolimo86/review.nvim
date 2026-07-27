@@ -158,7 +158,13 @@ end
 ---@param display_lines string[]
 ---@param line_offset number
 local function apply_highlights_from_source(
-    bufnr, lang, query, source_content, source_line_to_display, display_lines, line_offset
+    bufnr,
+    lang,
+    query,
+    source_content,
+    source_line_to_display,
+    display_lines,
+    line_offset
 )
     local source_lines = vim.split(source_content, "\n", { plain = true })
     local treesitter_padding = 20
@@ -1177,8 +1183,7 @@ local function add_comment()
     vim.wo[input_win].wrap = true
     vim.wo[input_win].linebreak = true
 
-    local get_current_type =
-        ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
+    local get_current_type = ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
 
     local function close_input()
         if vim.api.nvim_win_is_valid(input_win) then
@@ -1594,11 +1599,7 @@ function M.create(layout_component, file, callbacks)
         render_comments(new_component.bufnr, file)
 
         setup_keymaps(new_component.bufnr, callbacks, old_component.bufnr)
-        setup_comment_focus_autocmd(
-            { old_component.bufnr, new_component.bufnr },
-            new_component.bufnr,
-            file
-        )
+        setup_comment_focus_autocmd({ old_component.bufnr, new_component.bufnr }, new_component.bufnr, file)
 
         pcall(vim.api.nvim_buf_set_name, old_component.bufnr, "Review (old): " .. file)
         pcall(vim.api.nvim_buf_set_name, new_component.bufnr, "Review (new): " .. file)

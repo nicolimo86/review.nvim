@@ -784,14 +784,7 @@ local function render_to_buffer(bufnr, nodes, winid)
             -- Staging checkbox (root node)
             if node.checkbox_start then
                 local checkbox_hl = node.reviewed and "ReviewFileReviewed" or "ReviewFilePending"
-                vim.api.nvim_buf_add_highlight(
-                    bufnr,
-                    -1,
-                    checkbox_hl,
-                    i - 1,
-                    node.checkbox_start,
-                    node.checkbox_end
-                )
+                vim.api.nvim_buf_add_highlight(bufnr, -1, checkbox_hl, i - 1, node.checkbox_start, node.checkbox_end)
             end
             -- Indent markers
             if node.indent_ranges then
@@ -813,14 +806,7 @@ local function render_to_buffer(bufnr, nodes, winid)
             if node.dirname_start then
                 local dirname_hl = node.reviewed and "ReviewFileReviewed"
                     or (node.dir_partially_staged and "ReviewFileModified" or "ReviewTreeDirectory")
-                vim.api.nvim_buf_add_highlight(
-                    bufnr,
-                    -1,
-                    dirname_hl,
-                    i - 1,
-                    node.dirname_start,
-                    node.dirname_end
-                )
+                vim.api.nvim_buf_add_highlight(bufnr, -1, dirname_hl, i - 1, node.dirname_start, node.dirname_end)
             end
         else
             -- File node
@@ -834,14 +820,7 @@ local function render_to_buffer(bufnr, nodes, winid)
             -- Staging checkbox
             if node.checkbox_start then
                 local checkbox_hl = node.reviewed and "ReviewFileReviewed" or "ReviewFilePending"
-                vim.api.nvim_buf_add_highlight(
-                    bufnr,
-                    -1,
-                    checkbox_hl,
-                    i - 1,
-                    node.checkbox_start,
-                    node.checkbox_end
-                )
+                vim.api.nvim_buf_add_highlight(bufnr, -1, checkbox_hl, i - 1, node.checkbox_start, node.checkbox_end)
             end
 
             -- Git status dot - colored by status (green=added, orange=modified, red=deleted)
@@ -1278,7 +1257,8 @@ local function setup_keymaps(bufnr, callbacks)
                 state.set_reviewed(node.path, true)
                 if M.view_mode == "list" then
                     local function is_unstaged_file(refreshed_node)
-                        return refreshed_node and refreshed_node.is_file
+                        return refreshed_node
+                            and refreshed_node.is_file
                             and not refreshed_node.reviewed
                             and not refreshed_node.in_reviewed_section
                     end
@@ -1596,7 +1576,6 @@ local function setup_keymaps(bufnr, callbacks)
             end)
         end)
     end, { desc = "Amend staged changes to last commit", group = "Git" })
-
 
     -- Toggle list/tree view
     map("`", function()
