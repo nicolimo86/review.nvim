@@ -196,11 +196,11 @@ end
 ---Apply file tree window options
 ---@param winid number
 local function apply_tree_win_options(winid)
-    vim.api.nvim_win_set_option(winid, "number", false)
-    vim.api.nvim_win_set_option(winid, "relativenumber", false)
-    vim.api.nvim_win_set_option(winid, "cursorline", true)
-    vim.api.nvim_win_set_option(winid, "signcolumn", "no")
-    vim.api.nvim_win_set_option(winid, "wrap", false)
+    vim.wo[winid].number = false
+    vim.wo[winid].relativenumber = false
+    vim.wo[winid].cursorline = true
+    vim.wo[winid].signcolumn = "no"
+    vim.wo[winid].wrap = false
     vim.wo[winid].scrollbind = false
     vim.wo[winid].cursorbind = false
     vim.wo[winid].winhighlight = INACTIVE_WINHIGHLIGHT .. ",CursorLine:ReviewSelected"
@@ -209,11 +209,11 @@ end
 ---Apply diff view window options
 ---@param winid number
 local function apply_diff_win_options(winid)
-    vim.api.nvim_win_set_option(winid, "number", true)
-    vim.api.nvim_win_set_option(winid, "relativenumber", false)
-    vim.api.nvim_win_set_option(winid, "cursorline", false)
-    vim.api.nvim_win_set_option(winid, "signcolumn", "yes")
-    vim.api.nvim_win_set_option(winid, "wrap", false)
+    vim.wo[winid].number = true
+    vim.wo[winid].relativenumber = false
+    vim.wo[winid].cursorline = false
+    vim.wo[winid].signcolumn = "yes"
+    vim.wo[winid].wrap = false
     vim.wo[winid].scrollbind = false
     vim.wo[winid].cursorbind = false
     vim.wo[winid].winhighlight = INACTIVE_WINHIGHLIGHT

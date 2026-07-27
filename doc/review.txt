@@ -58,8 +58,11 @@ Optional:
 ==============================================================================
 3. INSTALLATION                                          *review-installation*
 
-The |:Review| command and the optional toggle mapping are both created inside
-`setup()`, so `setup()` must run.
+The |:Review| command is registered by `plugin/review.lua`, so it exists as
+soon as the plugin loads, and the defaults in |review-configuration| apply
+without any further work. `setup()` is still worth calling: it registers the
+plugin's highlight groups, loads and autosaves the review session and quick
+comments, and creates the optional global mappings.
 
 lazy.nvim: >lua
 
@@ -75,14 +78,13 @@ With options: >lua
         config = function()
             require("review").setup({
                 keymaps = { toggle = "<leader>rv" },
-                tmux = { target = "CLAUDE" },
             })
         end,
     }
 <
-To lazy-load, give lazy.nvim its own trigger. The plugin's own
-`keymaps.toggle` does not exist until `setup()` has run, so use lazy's `keys`
-rather than `keymaps.toggle`: >lua
+To lazy-load, give lazy.nvim its own trigger. Until that trigger fires the
+plugin is not loaded, so `keymaps.toggle` does not exist either. Use lazy's
+`keys`: >lua
 
     {
         "vuki656/review.nvim",
@@ -170,7 +172,7 @@ with `S`, or by setting `ui.diff_view_mode` to "split".
 >lua
     local review = require("review")
 
-    review.setup(opts)     -- required; see |review-configuration|
+    review.setup(opts)     -- optional; see |review-configuration|
     review.toggle()
     review.open()
     review.close()
@@ -195,8 +197,8 @@ Quick comments have their own module: >lua
 7. MAPPINGS                                                  *review-mappings*
 
 Every mapping below is buffer-local to the review UI; none of them touch your
-normal buffers. Press `?` in the Files panel or the diff pane for the built-in
-help overlay.
+normal buffers. Press `?` in the Files, Branches, Commits or Comments panel,
+or in the diff pane, for a help overlay listing that panel's mappings.
 
 ------------------------------------------------------------------------------
 7.1 Files panel                                        *review-mappings-files*
@@ -257,7 +259,8 @@ the base; the plugin reports this rather than acting.
 
 In side-by-side mode `c` and `dc` are bound only on the right (new) pane.
 Diffs of lock files (package-lock.json, yarn.lock, Cargo.lock and similar)
-are deliberately not rendered.
+are deliberately not rendered. A binary file renders as "Binary file — no
+diff to display." rather than an empty pane.
 
 ------------------------------------------------------------------------------
 7.3 Comment input                                      *review-mappings-input*
@@ -266,18 +269,20 @@ The floating input opened by `c`, by |:Review| qc, and by the quick comment
 mapping.
 
     <CR>          Submit. Bound in both insert and normal mode.
-    <Esc>         Submit. This does not cancel.
-    <C-c>         Submit. This does not cancel.
+    <Esc>         Cancel. Bound in both insert and normal mode.
+    <C-c>         Cancel. Insert mode.
     <S-CR>        Insert a newline instead of submitting.
     <Tab>         Cycle the comment type forwards: Fix -> Note -> Question.
-    <S-Tab>       Cycle the comment type backwards.
+                  Diff pane comments only.
+    <S-Tab>       Cycle the comment type backwards. Diff pane comments only.
     <C-t>         Open the template picker. Diff pane comments only.
 
-Submitting an empty input discards the comment, so <Esc> on an untouched
-input behaves like a cancel. In the template picker, press a template's key
-to apply it, or <Esc>, `q` or <C-t> to back out. A template whose text ends
-in ": " leaves the cursor at the end for you to finish the sentence; any
-other template submits immediately.
+Submitting an empty input also discards the comment. Quick comments have no
+type and no templates, so their input binds only <CR>, <Esc>, <C-c> and
+<S-CR>. In the template picker, press a template's key to apply it, or
+<Esc>, `q` or <C-t> to back out. A template whose text ends in ": " leaves
+the cursor at the end for you to finish the sentence; any other template
+submits immediately.
 
 ------------------------------------------------------------------------------
 7.4 Branches panel                                  *review-mappings-branches*
@@ -296,6 +301,7 @@ other template submits immediately.
     <C-l>         Focus the diff pane.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    ?             Show the help overlay.
 
 ------------------------------------------------------------------------------
 7.5 Commits panel                                    *review-mappings-commits*
@@ -312,6 +318,7 @@ other template submits immediately.
     <C-l>         Focus the diff pane.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    ?             Show the help overlay.
 
 Preview is skipped for commits touching more than 50 files, and individual
 file diffs longer than 1000 lines are elided in the preview.
@@ -331,6 +338,7 @@ file diffs longer than 1000 lines are elided in the preview.
     <C-l>         Focus the diff pane.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    ?             Show the help overlay.
 
 ------------------------------------------------------------------------------
 7.7 Quick comments panel                               *review-mappings-quick*
@@ -368,10 +376,9 @@ need the keys you want to change. The complete defaults: >lua
         ui = {
             file_tree_width = 33,
             diff_view_mode = "unified",
-            group_reviewed = true,
         },
         tmux = {
-            target = "CLAUDE",
+            target = "!",
             auto_enter = false,
         },
         quick_comments = {

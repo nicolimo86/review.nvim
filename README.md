@@ -236,6 +236,7 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `?` | Help overlay |
 
 ### Comments panel
 
@@ -252,6 +253,7 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `?` | Help overlay |
 
 ### Quick comments panel
 
@@ -282,10 +284,9 @@ require("review").setup({
     ui = {
         file_tree_width = 33,
         diff_view_mode = "unified",
-        group_reviewed = true,
     },
     tmux = {
-        target = "CLAUDE",
+        target = "!",
         auto_enter = false,
     },
     quick_comments = {
@@ -311,7 +312,8 @@ require("review").setup({
     persistence = {
         enabled = true,
     },
-    log_level = "INFO",
+    log_level = "WARN",
+    log_file = nil,
     templates = {
         { key = "e", label = "Extract", text = "Extract this into a separate function/component" },
         { key = "r", label = "Rename", text = "Rename to: " },
@@ -325,21 +327,21 @@ require("review").setup({
 })
 ```
 
-The `nil` entries are unset by default — no global keymaps are created unless you give them a value.
+The `nil` entries are unset by default — no global keymaps are created unless you give them a value, and `log_file` falls back to the temp path described below.
 
 - `keymaps.toggle` — global normal-mode key that toggles the review UI.
 - `diff.base` — git revision the diff compares against. `"HEAD"` means "everything in the worktree".
 - `ui.file_tree_width` — sidebar width as a **percentage** of total columns, not a column count.
 - `ui.diff_view_mode` — `"unified"` or `"split"` (side-by-side) on open. `S` toggles at runtime.
-- `ui.group_reviewed` — currently unused; nothing in the plugin reads it. Reviewed (staged) files are always grouped into their own section.
-- `tmux.target` — tmux window or pane name that `:Review send` pastes into, e.g. `"CLAUDE"` or `"CLAUDE.0"`.
+- `tmux.target` — tmux target that `:Review send` pastes into. The default `"!"` is tmux's last active pane, which is normally the pane you came from — usually the one running your agent. Any target `tmux paste-buffer -t` accepts works instead, e.g. a named window `"CLAUDE"`, `"CLAUDE.0"` or a fully qualified `"session:window.pane"`.
 - `tmux.auto_enter` — send `Enter` after pasting. Off by default so you can read the prompt before submitting it.
 - `quick_comments.keymaps.add` / `.toggle_panel` — global keys for `:Review qc` and `:Review qp`.
 - `quick_comments.signs.enabled` — gutter signs for quick comments.
 - `export.context_lines` — lines of diff context included above and below each comment in the exported markdown.
-- `auto_refresh` — a filesystem watcher on the git root re-renders the UI when files change on disk. Useful when an agent is writing while you read.
+- `auto_refresh` — a filesystem watcher re-renders the UI when files change on disk, debounced by `debounce_ms`. It walks the git root and watches each directory individually (libuv has no recursive watching on Linux), skipping `.git`, `node_modules`, `target`, `dist`, `build`, `.venv` and `vendor`, and stops at 2000 directories — past that a warning goes to the log and the rest of the tree is not watched. The directory list is built when the UI opens, so directories created afterwards are picked up on the next open. Useful when an agent is writing while you read.
 - `persistence.enabled` — remembers comments across sessions. State lives in `.git/review-session.json` and `.git/review-comments.json`, so nothing needs gitignoring.
-- `log_level` — `"DEBUG"`, `"INFO"`, `"WARN"` or `"ERROR"`. Log file at `stdpath("log") .. "/review.log"`, openable with `:Review log`.
+- `log_level` — `"DEBUG"`, `"INFO"`, `"WARN"` or `"ERROR"`.
+- `log_file` — path to write the log to. Unset by default, in which case the log goes to `review.nvim/review.log` under the system temp directory (`vim.uv.os_tmpdir()`, typically `/tmp/review.nvim/review.log`) so it gets cleaned up with the rest of temp. Set this to keep the log somewhere persistent. Either way the file rotates: once it passes 1 MB it is moved to `<path>.old` and a fresh one is started. `:Review log` opens the current file.
 - `templates` — canned comment texts reachable with `<C-t>` in the diff comment input. A `text` ending in `": "` leaves the cursor at the end for you to finish; anything else submits immediately.
 
 ## Comments and export
@@ -377,7 +379,7 @@ The generated markdown looks like:
 Handle a non-2xx response here.
 ````
 
-For the tmux path, `tmux.target` names the window or pane your agent runs in. If you keep Claude Code in a tmux window called `CLAUDE`, the default works as-is; otherwise set `target = "session:window.pane"` or pass it per-call with `:Review send other-pane`. "Copy & Send" fails quietly outside tmux — you still get the clipboard copy.
+For the tmux path, `tmux.target` names where the markdown is pasted. The default `"!"` is tmux's last active pane, so the export lands in whatever pane you were in before Neovim — usually the one running your agent. If your agent lives somewhere fixed, set a name instead (`target = "CLAUDE"`, or a fully qualified `"session:window.pane"`), or pass one per call with `:Review send other-pane`. "Copy & Send" fails quietly outside tmux — you still get the clipboard copy.
 
 ## License
 
