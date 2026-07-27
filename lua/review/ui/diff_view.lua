@@ -1247,7 +1247,12 @@ local function add_comment()
         end
         if vim.api.nvim_win_is_valid(original_winid) then
             vim.api.nvim_set_current_win(original_winid)
-            vim.api.nvim_win_set_cursor(original_winid, original_cursor)
+            local restore_buf = vim.api.nvim_win_get_buf(original_winid)
+            local max_row = vim.api.nvim_buf_line_count(restore_buf)
+            pcall(vim.api.nvim_win_set_cursor, original_winid, {
+                math.min(original_cursor[1], max_row),
+                original_cursor[2],
+            })
         end
         for _, winid in ipairs(split_windows) do
             if vim.api.nvim_win_is_valid(winid) then
@@ -1268,11 +1273,15 @@ local function add_comment()
         end
 
         vim.cmd("stopinsert")
-        close_input()
 
         local text = table.concat(lines, "\n")
         if text ~= "" then
             state.add_comment(file, line_num, get_current_type(), text, original_line, source_side)
+        end
+
+        close_input()
+
+        if text ~= "" then
             render_comments(bufnr, file)
             require("review.ui.comment_list").refresh()
         end
