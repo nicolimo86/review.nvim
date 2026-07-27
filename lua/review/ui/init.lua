@@ -308,6 +308,7 @@ local function do_close(action)
     log.info("ui: closing review action=", action)
 
     -- Handle export based on action
+    local export_landed = true
     if action == "copy" or action == "copy_and_send" then
         local all_comments = state.get_all_comments()
         if #all_comments > 0 then
@@ -317,16 +318,22 @@ local function do_close(action)
             vim.fn.setreg("+", content)
             vim.fn.setreg("*", content)
 
+            export_landed = vim.fn.getreg("+") == content
+            if not export_landed then
+                vim.notify("Could not copy comments to the clipboard, keeping the saved session", vim.log.levels.ERROR)
+                log.error("ui: clipboard write did not land, preserving session file")
+            end
+
             if action == "copy_and_send" then
                 -- Try to send to tmux
-                export.to_tmux(nil, true)
+                export.to_tmux(nil, false)
             end
         end
     end
 
     -- Handle persistence
     if config.get().persistence.enabled then
-        if action == "exit" then
+        if action == "exit" or not export_landed then
             persistence.save()
         else
             persistence.delete()
