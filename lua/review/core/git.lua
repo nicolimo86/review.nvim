@@ -258,6 +258,39 @@ function M.is_untracked(file)
     end)
 end
 
+---Synthesize an add-only diff for an untracked file
+---@param git_root string
+---@param file string File path relative to git root
+---@return GitDiffResult
+local function untracked_diff(git_root, file)
+    local full_path = git_root .. "/" .. file
+    local read_ok, content = pcall(vim.fn.readfile, full_path)
+    if not read_ok or not content or #content == 0 then
+        return { success = true, output = "", error = nil }
+    end
+
+    for _, line in ipairs(content) do
+        if line:find("\n", 1, true) then
+            return {
+                success = true,
+                output = "Binary files /dev/null and b/" .. file .. " differ",
+                error = nil,
+            }
+        end
+    end
+
+    local diff_lines = {
+        "--- /dev/null",
+        "+++ b/" .. file,
+        "@@ -0,0 +1," .. #content .. " @@",
+    }
+    for _, line in ipairs(content) do
+        table.insert(diff_lines, "+" .. line)
+    end
+
+    return { success = true, output = table.concat(diff_lines, "\n"), error = nil }
+end
+
 ---@class GetDiffOpts
 ---@field file_status "untracked"|"staged_only"|"unstaged"|nil Pre-resolved file status to skip subprocess calls
 
@@ -302,22 +335,7 @@ function M.get_diff(file, base, base_end, opts)
     -- Check if file is untracked (new file)
     local is_untracked = file_status == "untracked" or (not file_status and M.is_untracked(file))
     if is_untracked then
-        local full_path = git_root .. "/" .. file
-        local read_ok, content = pcall(vim.fn.readfile, full_path)
-        if not read_ok or not content or #content == 0 then
-            return { success = true, output = "", error = nil }
-        end
-
-        local diff_lines = {
-            "--- /dev/null",
-            "+++ b/" .. file,
-            "@@ -0,0 +1," .. #content .. " @@",
-        }
-        for _, line in ipairs(content) do
-            table.insert(diff_lines, "+" .. line)
-        end
-
-        return { success = true, output = table.concat(diff_lines, "\n"), error = nil }
+        return untracked_diff(git_root, file)
     end
 
     -- Determine if file has only staged changes (no unstaged)
@@ -1712,22 +1730,7 @@ function M.get_diff_async(file, base, base_end, opts)
 
     local is_untracked = file_status == "untracked" or (not file_status and M.is_untracked(file))
     if is_untracked then
-        local full_path = git_root .. "/" .. file
-        local read_ok, content = pcall(vim.fn.readfile, full_path)
-        if not read_ok or not content or #content == 0 then
-            return { success = true, output = "", error = nil }
-        end
-
-        local diff_lines = {
-            "--- /dev/null",
-            "+++ b/" .. file,
-            "@@ -0,0 +1," .. #content .. " @@",
-        }
-        for _, line in ipairs(content) do
-            table.insert(diff_lines, "+" .. line)
-        end
-
-        return { success = true, output = table.concat(diff_lines, "\n"), error = nil }
+        return untracked_diff(git_root, file)
     end
 
     local is_staged_only = file_status == "staged_only"

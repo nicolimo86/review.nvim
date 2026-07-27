@@ -718,7 +718,6 @@ local function render_diff_async(bufnr, file, expected_generation)
 
     state.get_file_state(file).render_lines = render_lines
 
-    -- Publish the mapping with the buffer content, before stage 2 yields
     if M.current and M.current.bufnr == bufnr and expected_generation == diff_generation then
         M.current.render_lines = render_lines
     end
@@ -927,8 +926,6 @@ local function render_comments(bufnr, file)
 
     local comments = state.get_comments_for_file(file)
 
-    -- Re-anchor rows against the current rendering; the diff shifts when
-    -- diff_context changes, on split/unified toggle and on watcher refreshes
     local render_lines = M.current and M.current.bufnr == bufnr and M.current.render_lines or nil
     if render_lines then
         for _, comment in ipairs(comments) do
@@ -1797,8 +1794,6 @@ function M.toggle_diff_mode(callbacks)
     M.pending_restore_source_line = source_line
     M.create(diff_split, M.current.file, callbacks)
 
-    -- The split path renders synchronously, so restore here; the unified path
-    -- is async and restores from pending_restore_source_line when it completes
     if state.state.diff_mode ~= "split" then
         return
     end
