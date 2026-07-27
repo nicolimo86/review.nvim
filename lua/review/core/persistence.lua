@@ -125,6 +125,7 @@ function M.save()
                     file = comment.file,
                     line = comment.line,
                     original_line = comment.original_line,
+                    side = comment.side,
                     type = comment.type,
                     text = comment.text,
                     created_at = comment.created_at,

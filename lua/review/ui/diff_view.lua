@@ -886,10 +886,43 @@ end
 ---Render comment markers
 ---@param bufnr number
 ---@param file string
+---Resolve the display row a comment belongs on in the current rendering
+---@param comment table
+---@param render_lines table[]|nil
+---@return number
+local function display_row_for(comment, render_lines)
+    if not comment.original_line or not render_lines then
+        return comment.line
+    end
+
+    local want_old = comment.side == "old"
+
+    for index, line in ipairs(render_lines) do
+        local is_old = line.type == "delete"
+        if is_old == want_old then
+            local source = line.source_line or (is_old and line.old_line or line.new_line)
+            if source == comment.original_line then
+                return index
+            end
+        end
+    end
+
+    return comment.line
+end
+
 local function render_comments(bufnr, file)
     vim.api.nvim_buf_clear_namespace(bufnr, ns_comments, 0, -1)
 
     local comments = state.get_comments_for_file(file)
+
+    -- Re-anchor rows against the current rendering; the diff shifts when
+    -- diff_context changes, on split/unified toggle and on watcher refreshes
+    local render_lines = M.current and M.current.bufnr == bufnr and M.current.render_lines or nil
+    if render_lines then
+        for _, comment in ipairs(comments) do
+            comment.line = display_row_for(comment, render_lines)
+        end
+    end
 
     -- Calculate available width for comment box
     local max_box_width = nil
@@ -1153,7 +1186,7 @@ local function add_comment()
         end
     end
 
-    local source_line = get_current_source_line()
+    local source_line, source_side = get_current_source_line()
     local original_line = source_line or line_num
     local file = M.current.file
     local bufnr = M.current.bufnr
@@ -1239,7 +1272,7 @@ local function add_comment()
 
         local text = table.concat(lines, "\n")
         if text ~= "" then
-            state.add_comment(file, line_num, get_current_type(), text, original_line)
+            state.add_comment(file, line_num, get_current_type(), text, original_line, source_side)
             render_comments(bufnr, file)
             require("review.ui.comment_list").refresh()
         end

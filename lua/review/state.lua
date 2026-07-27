@@ -1,8 +1,9 @@
 ---@class ReviewComment
 ---@field id string Unique identifier
 ---@field file string File path
----@field line number Line number in the diff
+---@field line number Display row in the current rendering, re-anchored on render
 ---@field original_line number|nil Original line in source file
+---@field side "old"|"new"|nil Which side of the diff original_line refers to
 ---@field type "note"|"fix"|"question"
 ---@field text string Comment text
 ---@field created_at number Timestamp
@@ -87,14 +88,16 @@ end
 ---@param type "note"|"fix"|"question"
 ---@param text string
 ---@param original_line number|nil
+---@param side "old"|"new"|nil
 ---@return ReviewComment
-function M.add_comment(file, line, type, text, original_line)
+function M.add_comment(file, line, type, text, original_line, side)
     local file_state = M.get_file_state(file)
     local comment = {
         id = M.generate_comment_id(),
         file = file,
         line = line,
         original_line = original_line,
+        side = side,
         type = type,
         text = text,
         created_at = os.time(),
