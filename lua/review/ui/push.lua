@@ -28,13 +28,20 @@ local function create_spinner(label)
 
     local frame = 0
     local timer = vim.uv.new_timer()
+
+    local function stop_timer()
+        if timer and not timer:is_closing() then
+            timer:stop()
+            timer:close()
+        end
+    end
+
     timer:start(
         0,
         80,
         vim.schedule_wrap(function()
             if not vim.api.nvim_buf_is_valid(popup_buf) then
-                timer:stop()
-                timer:close()
+                stop_timer()
                 return
             end
             frame = (frame % #SPINNER_FRAMES) + 1
@@ -46,8 +53,7 @@ local function create_spinner(label)
 
     return {
         close = function()
-            timer:stop()
-            timer:close()
+            stop_timer()
             if vim.api.nvim_win_is_valid(popup_win) then
                 vim.api.nvim_win_close(popup_win, true)
             end
