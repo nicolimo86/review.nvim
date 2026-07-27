@@ -196,12 +196,15 @@ local function build_tree_nodes(comments)
 
     local nodes = {}
 
-    local function flatten(node, depth, parent_last)
+    local function flatten(node, depth, parent_last, prefix)
         local items = {}
 
         if node._order then
             for _, dir_name in ipairs(node._order) do
-                table.insert(items, { type = "dir", name = dir_name, child = node[dir_name] })
+                table.insert(
+                    items,
+                    { type = "dir", name = dir_name, full = prefix .. dir_name .. "/", child = node[dir_name] }
+                )
             end
         end
 
@@ -232,7 +235,7 @@ local function build_tree_nodes(comments)
 
                 table.insert(nodes, {
                     type = "dir_header",
-                    dir_path = item.name,
+                    dir_path = item.full,
                     path = item.name,
                     depth = depth,
                     is_last = is_last,
@@ -240,10 +243,10 @@ local function build_tree_nodes(comments)
                     comment_count = comment_count,
                 })
 
-                if not collapsed_dirs[item.name] then
+                if not collapsed_dirs[item.full] then
                     local child_parent_last = vim.deepcopy(parent_last)
                     table.insert(child_parent_last, is_last)
-                    flatten(item.child, depth + 1, child_parent_last)
+                    flatten(item.child, depth + 1, child_parent_last, item.full)
                 end
             elseif item.type == "file" then
                 table.insert(nodes, {
@@ -271,7 +274,7 @@ local function build_tree_nodes(comments)
         end
     end
 
-    flatten(tree, 0, {})
+    flatten(tree, 0, {}, "")
     return nodes
 end
 
