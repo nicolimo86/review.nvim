@@ -22,6 +22,8 @@ function M.load()
         return false
     end
 
+    loaded_path = path
+
     local ok, data = json_persistence.read_json_file(path)
     if not ok then
         vim.notify("Failed to parse quick comments file", vim.log.levels.WARN)
@@ -42,7 +44,6 @@ function M.load()
         comment_id_counter = data.comment_id_counter or 0,
     })
 
-    loaded_path = path
     log.info("quick comments: loaded", #(data.comments or {}), "from", path)
 
     return true

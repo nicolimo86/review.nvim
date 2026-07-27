@@ -38,6 +38,8 @@ function M.load()
         return false
     end
 
+    loaded_path = path
+
     local ok, data = json_persistence.read_json_file(path)
     if not ok then
         vim.notify("Failed to parse review session file", vim.log.levels.WARN)
@@ -47,8 +49,6 @@ function M.load()
     if not data then
         return true
     end
-
-    loaded_path = path
 
     if data.version ~= 1 then
         vim.notify("Unsupported review session file version", vim.log.levels.WARN)

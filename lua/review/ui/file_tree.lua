@@ -172,15 +172,17 @@ local function create_sub_separator_node()
 end
 
 ---Get git status highlight
----@param git_status string "added"|"modified"|"deleted"|"renamed"
+---@param git_status string "added"|"modified"|"deleted"|"renamed"|"copied"|"conflicted"
 ---@return string highlight
 local function get_git_status_hl(git_status)
     if git_status == "added" then
         return "ReviewGitAdded"
     elseif git_status == "deleted" then
         return "ReviewGitDeleted"
-    elseif git_status == "renamed" then
+    elseif git_status == "renamed" or git_status == "copied" then
         return "ReviewGitRenamed"
+    elseif git_status == "conflicted" then
+        return "ReviewGitConflicted"
     else
         return "ReviewGitModified"
     end
@@ -323,7 +325,7 @@ local function create_nodes(files, base, base_end, cached_unstaged_set)
                 table.insert(unstaged_deleted, file)
             elseif git_status == "added" then
                 table.insert(unstaged_added, file)
-            elseif git_status == "renamed" then
+            elseif git_status == "renamed" or git_status == "copied" then
                 table.insert(unstaged_renamed, file)
             else
                 table.insert(unstaged_modified, file)
@@ -341,7 +343,7 @@ local function create_nodes(files, base, base_end, cached_unstaged_set)
                 table.insert(unstaged_deleted, file)
             elseif git_status == "added" then
                 table.insert(unstaged_added, file)
-            elseif git_status == "renamed" then
+            elseif git_status == "renamed" or git_status == "copied" then
                 table.insert(unstaged_renamed, file)
             else
                 table.insert(unstaged_modified, file)

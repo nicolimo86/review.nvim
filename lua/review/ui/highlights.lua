@@ -18,6 +18,7 @@ local LINKS = {
     ReviewGitAdded = "Added",
     ReviewGitModified = "Changed",
     ReviewGitDeleted = "Removed",
+    ReviewGitConflicted = "DiagnosticError",
     ReviewFloatBorder = "FloatBorder",
     ReviewFloatTitle = "FloatTitle",
     ReviewWinSeparator = "WinSeparator",

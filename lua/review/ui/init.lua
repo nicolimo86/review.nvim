@@ -91,8 +91,7 @@ function M.open()
     )
 
     -- Check for saved session
-    local has_session = config.get().persistence.enabled and persistence.exists()
-    if has_session then
+    if config.get().persistence.enabled then
         persistence.load()
     end
 
