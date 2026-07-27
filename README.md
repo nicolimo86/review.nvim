@@ -30,7 +30,7 @@ If you are not doing agent workflows, it still works as a plain diff reviewer.
 
 ## Installation
 
-`:Review` is registered by `plugin/review.lua`, so the command exists as soon as the plugin loads and the defaults in `config.lua` are already in effect. `setup()` is still worth calling: it registers the plugin's highlight groups, loads and autosaves the session and quick comments, and creates the optional global keymaps.
+`:Review` is registered by `plugin/review.lua`, so the command exists as soon as the plugin loads and the defaults in `config.lua` are already in effect. `setup()` is still worth calling: it registers the plugin's highlight groups, loads existing quick comments and sets up their gutter signs, enables autosave for the review session and for quick comments, and creates the optional global keymaps. Without it the quick comment signs are never defined, so `quick_comments.signs.enabled` has no effect.
 
 ### lazy.nvim
 

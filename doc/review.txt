@@ -61,8 +61,11 @@ Optional:
 The |:Review| command is registered by `plugin/review.lua`, so it exists as
 soon as the plugin loads, and the defaults in |review-configuration| apply
 without any further work. `setup()` is still worth calling: it registers the
-plugin's highlight groups, loads and autosaves the review session and quick
-comments, and creates the optional global mappings.
+plugin's highlight groups, loads existing quick comments and defines their
+gutter signs, enables autosave for the review session and for quick
+comments, and creates the optional global mappings. Without it the quick
+comment signs are never defined, so `quick_comments.signs.enabled` has no
+effect.
 
 lazy.nvim: >lua
 
@@ -344,9 +347,9 @@ file diffs longer than 1000 lines are elided in the preview.
 7.7 Quick comments panel                               *review-mappings-quick*
 
 Quick comments are separate from review comments. They attach to any line of
-any buffer outside the review UI, show as gutter signs, and persist in
-`.git/review-comments.json`. Add one with |:Review| qc, toggle the panel with
-|:Review| qp.
+any buffer outside the review UI, show as gutter signs once `setup()` has
+defined them, and persist in `.git/review-comments.json`. Add one with
+|:Review| qc, toggle the panel with |:Review| qp.
 
     <CR>          Jump to the comment's file and line in the previous window,
                   leaving the panel open.
@@ -404,7 +407,8 @@ need the keys you want to change. The complete defaults: >lua
         persistence = {
             enabled = true,
         },
-        log_level = "INFO",
+        log_level = "WARN",
+        log_file = nil,
         templates = {
             { key = "e", label = "Extract",
               text = "Extract this into a separate function/component" },
@@ -422,7 +426,8 @@ need the keys you want to change. The complete defaults: >lua
     })
 <
 The `nil` values are unset by default: no global mappings are created unless
-you supply a key.
+you supply a key, and `log_file` falls back to a path under the system temp
+directory.
 
 keymaps.toggle ~
     Global normal-mode key that toggles the review UI. Unset by default.
@@ -438,14 +443,13 @@ ui.diff_view_mode ~
     "unified" or "split" (side-by-side) when the UI opens. `S` toggles it at
     runtime.
 
-ui.group_reviewed ~
-    Currently unused: nothing in the plugin reads this option. Reviewed
-    (staged) files are always grouped into their own section regardless.
-
 tmux.target ~
-    tmux window or pane the export is pasted into. Any target accepted by
-    `tmux paste-buffer -t` works, for example "CLAUDE", "CLAUDE.0" or
-    "session:window.pane".
+    Where the export is pasted. The default "!" is tmux's last active pane,
+    normally the pane you switched away from to reach Neovim, which is
+    usually the one running your agent. Any other target accepted by
+    `tmux paste-buffer -t` works, for example a named window "CLAUDE",
+    "CLAUDE.0" or a fully qualified "session:window.pane". |:Review| send
+    takes a target for a single call.
 
 tmux.auto_enter ~
     Send Enter after pasting. Off by default so you can read the prompt
@@ -471,9 +475,15 @@ export.context_lines ~
 
 auto_refresh.enabled ~
 auto_refresh.debounce_ms ~
-    A filesystem watcher on the git root re-renders the UI when files change
-    on disk, debounced by `debounce_ms`. Changes under `.git/` are ignored.
-    Useful when an agent is writing while you read.
+    A filesystem watcher re-renders the UI when files change on disk,
+    debounced by `debounce_ms`. libuv cannot watch a tree recursively on
+    Linux, so the watcher walks the git root and watches each directory
+    separately, skipping `.git`, `node_modules`, `target`, `dist`, `build`,
+    `.venv` and `vendor`. It stops after 2000 directories; if the repository
+    is larger the remainder is not watched and a warning is written to the
+    log. The list is built when the UI opens, so directories created later
+    are picked up the next time it opens. Useful when an agent is writing
+    while you read.
 
 persistence.enabled ~
     Remember comments and review state between sessions. Files are written
@@ -482,6 +492,15 @@ persistence.enabled ~
 
 log_level ~
     "DEBUG", "INFO", "WARN" or "ERROR". See |review-troubleshooting|.
+
+log_file ~
+    Path to write the log to. Unset by default, in which case the log lands
+    in `review.nvim/review.log` under the system temp directory reported by
+    `vim.uv.os_tmpdir()`, typically `/tmp/review.nvim/review.log`. Temp is
+    deliberate: the log is cleaned up with the rest of the directory. Set
+    this to keep the log somewhere permanent. Either way the file rotates
+    once it grows past 1 MB: the current file becomes `<path>.old`, any
+    previous `.old` is discarded, and logging continues in a fresh file.
 
 templates ~
     Canned comment texts reachable with <C-t> in the diff comment input.
@@ -539,11 +558,13 @@ to reading the file from disk and marks the block "(no changes)".
 10. TROUBLESHOOTING                                   *review-troubleshooting*
 
 Start with `:checkhealth review`, which verifies the Neovim version, git and
-the repository, tmux, whether `setup()` has run, and the log configuration.
+the repository, tmux and $TMUX, whether `setup()` has run, the log level, and
+the log file path. "`setup()` has not been called" is reported as a warning,
+not an error: the defaults are in effect either way.
 
 :Review is not a command ~
-    `setup()` has not run. See |review-installation|. If you lazy-load, make
-    sure the trigger fires before you type the command.
+    The plugin has not loaded. See |review-installation|. If you lazy-load,
+    make sure the trigger fires before you type the command.
 
 The toggle mapping does nothing ~
     `keymaps.toggle` is created by `setup()`. Under a lazy-loaded spec the
@@ -555,11 +576,15 @@ The toggle mapping does nothing ~
     session; it cannot paste into a tmux server it is not attached to.
 
 Sending succeeds but nothing appears in the agent ~
-    `tmux.target` does not resolve. List the real targets with >
+    The paste went somewhere else. With the default `tmux.target` of "!" it
+    lands in the last active pane, which is not your agent if you moved
+    through another pane on the way to Neovim. Set a fixed target instead.
+    List the real ones with >
 
         tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}'
 <
-    and pass a fully qualified target such as "session:window.pane".
+    and use a fully qualified target such as "session:window.pane", either
+    in `tmux.target` or as the argument to |:Review| send.
 
 No file icons ~
     nvim-web-devicons is not installed. Optional; everything else works.
@@ -576,9 +601,14 @@ Checkout or branch creation refuses to run ~
     Both refuse on a dirty worktree. Commit or stash first.
 
 Reading the log ~
-    Run |:Review| log, or open `stdpath("log") .. "/review.log"`, typically
-    `~/.local/state/nvim/review.log`. Set `log_level = "DEBUG"` in `setup()`
-    for the verbose trace of git operations and layout lifecycle.
+    Run |:Review| log, or open the file directly: by default it is
+    `review.nvim/review.log` under the system temp directory, typically
+    `/tmp/review.nvim/review.log`. Set `log_file` to keep it elsewhere.
+
+Filing a bug report ~
+    Set `log_level = "DEBUG"` in `setup()`, reproduce the problem, then
+    attach the contents of |:Review| log. DEBUG traces git operations, the
+    layout lifecycle and the commit and amend flows.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
