@@ -395,6 +395,7 @@ local function setup_keymaps(bufnr)
         tab_target = "get_comment_list",
         h_target = "get_branch_list",
         l_target = "get_comment_list",
+        scroll_keys = { down = "J", up = "K" },
     }, function()
         if callbacks.on_close then
             callbacks.on_close()
