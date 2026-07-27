@@ -1148,14 +1148,14 @@ local function setup_keymaps(bufnr, callbacks)
     local map = ui_util.create_buffer_mapper(bufnr, registered_keymaps)
 
     local function get_child_files_of_directory(dir_path)
-        if not M.current or not M.current.nodes then
+        if not M.current or not M.current.files then
             return {}
         end
         local prefix = dir_path .. "/"
         local child_files = {}
-        for _, file_node in ipairs(M.current.nodes) do
-            if file_node.is_file and file_node.path and file_node.path:sub(1, #prefix) == prefix then
-                table.insert(child_files, file_node)
+        for _, file in ipairs(M.current.files) do
+            if file:sub(1, #prefix) == prefix then
+                table.insert(child_files, { path = file, reviewed = state.is_reviewed(file) })
             end
         end
         return child_files
