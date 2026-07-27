@@ -275,7 +275,7 @@ end
 
 ---Get the source line number for a rendered line
 ---@param rendered_line_num number 1-based line number in rendered buffer
----@param render_lines DiffLine[]
+---@param render_lines DiffLine[]|SplitLine[]
 ---@return number|nil original_line, "old"|"new"|nil side
 function M.get_source_line(rendered_line_num, render_lines)
     local line = render_lines[rendered_line_num]
@@ -283,15 +283,21 @@ function M.get_source_line(rendered_line_num, render_lines)
         return nil, nil
     end
 
-    if line.type == "add" then
-        return line.new_line, "new"
-    elseif line.type == "delete" then
-        return line.old_line, "old"
-    elseif line.type == "context" then
-        return line.new_line, "new"
+    if line.type ~= "add" and line.type ~= "delete" and line.type ~= "context" then
+        return nil, nil
     end
 
-    return nil, nil
+    local side = line.type == "delete" and "old" or "new"
+
+    if line.source_line then
+        return line.source_line, side
+    end
+
+    if line.type == "delete" then
+        return line.old_line, "old"
+    end
+
+    return line.new_line, "new"
 end
 
 return M

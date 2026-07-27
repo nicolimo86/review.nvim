@@ -328,6 +328,52 @@ T["non-binary diff is not flagged"] = function()
     expect.equality(parsed.binary, false)
 end
 
+get_source_line["split add line returns its source_line"] = function()
+    local parsed = diff.parse(helpers.SIMPLE_DIFF)
+    local _, new_lines = diff.get_split_render_lines(parsed)
+    local found = false
+    for index, line in ipairs(new_lines) do
+        if line.type == "add" then
+            local source, side = diff.get_source_line(index, new_lines)
+            expect.equality(source, line.source_line)
+            expect.no_equality(source, nil)
+            expect.equality(side, "new")
+            found = true
+            break
+        end
+    end
+    expect.equality(found, true)
+end
+
+get_source_line["split delete line returns its source_line"] = function()
+    local parsed = diff.parse(helpers.SIMPLE_DIFF)
+    local old_lines = diff.get_split_render_lines(parsed)
+    local found = false
+    for index, line in ipairs(old_lines) do
+        if line.type == "delete" then
+            local source, side = diff.get_source_line(index, old_lines)
+            expect.equality(source, line.source_line)
+            expect.no_equality(source, nil)
+            expect.equality(side, "old")
+            found = true
+            break
+        end
+    end
+    expect.equality(found, true)
+end
+
+get_source_line["split padding and filepath lines return nil"] = function()
+    local parsed = diff.parse(helpers.SIMPLE_DIFF)
+    local old_lines = diff.get_split_render_lines(parsed)
+    expect.equality(diff.get_source_line(1, old_lines), nil)
+    for index, line in ipairs(old_lines) do
+        if line.type == "padding" then
+            expect.equality(diff.get_source_line(index, old_lines), nil)
+            break
+        end
+    end
+end
+
 T["deleted line starting with -- is not mistaken for a file header"] = function()
     local parsed = diff.parse(table.concat({
         "--- a/f.lua",
