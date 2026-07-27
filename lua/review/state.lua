@@ -80,7 +80,7 @@ end
 ---@return string
 function M.generate_comment_id()
     M.state.comment_id_counter = M.state.comment_id_counter + 1
-    return string.format("comment_%d", M.state.comment_id_counter)
+    return string.format("comment_%d_%d", M.state.comment_id_counter, vim.uv.os_getpid())
 end
 
 ---@param file string

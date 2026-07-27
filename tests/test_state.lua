@@ -89,15 +89,15 @@ T["generate_comment_id"] = comment_id_tests
 comment_id_tests["sequential comment_N format"] = function()
     local id1 = state.generate_comment_id()
     local id2 = state.generate_comment_id()
-    expect.equality(id1, "comment_1")
-    expect.equality(id2, "comment_2")
+    expect.equality(id1, "comment_1_" .. vim.uv.os_getpid())
+    expect.equality(id2, "comment_2_" .. vim.uv.os_getpid())
 end
 
 comment_id_tests["global counter persists across files"] = function()
     state.add_comment("a.lua", 1, "note", "first")
     state.add_comment("b.lua", 1, "note", "second")
     local id = state.generate_comment_id()
-    expect.equality(id, "comment_3")
+    expect.equality(id, "comment_3_" .. vim.uv.os_getpid())
 end
 
 local add_comment_tests = new_set()
@@ -105,7 +105,7 @@ T["add_comment"] = add_comment_tests
 
 add_comment_tests["returns comment with all fields"] = function()
     local comment = state.add_comment("test.lua", 5, "fix", "Fix this", 42)
-    expect.equality(comment.id, "comment_1")
+    expect.equality(comment.id, "comment_1_" .. vim.uv.os_getpid())
     expect.equality(comment.file, "test.lua")
     expect.equality(comment.line, 5)
     expect.equality(comment.type, "fix")

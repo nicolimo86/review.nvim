@@ -61,7 +61,7 @@ function M.write_json_file(path, data)
         return false
     end
 
-    local tmp_path = path .. ".tmp"
+    local tmp_path = string.format("%s.%d.tmp", path, vim.uv.os_getpid())
     local file = io.open(tmp_path, "w")
     if not file then
         return false

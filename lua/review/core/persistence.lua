@@ -8,6 +8,22 @@ local FILENAME = "review-session.json"
 
 local loaded_path = nil
 local unreadable_path = nil
+local loaded_mtime = nil
+
+---Modification time of a file, or nil when it does not exist
+---@param path string
+---@return number|nil
+local function mtime_of(path)
+    local stat = vim.uv.fs_stat(path)
+    return stat and stat.mtime and stat.mtime.sec
+end
+
+---Whether the file changed on disk since we loaded it
+---@param path string
+---@return boolean
+local function changed_since_load(path)
+    return mtime_of(path) ~= loaded_mtime
+end
 
 ---Get the path to the persistence file
 ---@return string|nil
@@ -56,6 +72,7 @@ function M.load()
 
     loaded_path = path
     unreadable_path = nil
+    loaded_mtime = mtime_of(path)
 
     if not data then
         return true
@@ -114,8 +131,14 @@ function M.save()
         return false
     end
 
+    local conflicted = changed_since_load(path)
+
     local all_comments = state.get_all_comments()
     if #all_comments == 0 then
+        if conflicted then
+            log.warn("persistence: another session wrote", path, "-- leaving it in place")
+            return true
+        end
         os.remove(path)
         return true
     end
@@ -140,6 +163,34 @@ function M.save()
         end
     end
 
+    if conflicted then
+        local ok, disk = json_persistence.read_json_file(path)
+        if ok and disk and disk.version == 1 and disk.files then
+            local merged = 0
+            for file_path, file_data in pairs(disk.files) do
+                local target = files_data[file_path] or { comments = {} }
+                local seen = {}
+                for _, comment in ipairs(target.comments) do
+                    seen[comment.id] = true
+                end
+                for _, comment in ipairs(file_data.comments or {}) do
+                    if not seen[comment.id] then
+                        table.insert(target.comments, comment)
+                        merged = merged + 1
+                    end
+                end
+                files_data[file_path] = target
+            end
+            if merged > 0 then
+                log.warn("persistence: merged", merged, "comment(s) written by another session")
+                vim.notify(
+                    string.format("Merged %d comment(s) saved by another Neovim session", merged),
+                    vim.log.levels.WARN
+                )
+            end
+        end
+    end
+
     local data = {
         version = 1,
         files = files_data,
@@ -155,6 +206,7 @@ function M.save()
         return false
     end
 
+    loaded_mtime = mtime_of(path)
     log.info("persistence: saved", #all_comments, "comment(s) to", path)
     return true
 end
