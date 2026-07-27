@@ -1,9 +1,12 @@
 local json_persistence = require("review.core.json_persistence")
+local log = require("review.core.log")
 local state = require("review.state")
 
 local M = {}
 
 local FILENAME = "review-session.json"
+
+local loaded_path = nil
 
 ---Get the path to the persistence file
 ---@return string|nil
@@ -44,6 +47,8 @@ function M.load()
     if not data then
         return true
     end
+
+    loaded_path = path
 
     if data.version ~= 1 then
         vim.notify("Unsupported review session file version", vim.log.levels.WARN)
@@ -87,6 +92,11 @@ function M.save()
         return false
     end
 
+    if loaded_path and loaded_path ~= path then
+        log.warn("persistence: refusing to save into", path, "loaded from", loaded_path)
+        return false
+    end
+
     local all_comments = state.get_all_comments()
     if #all_comments == 0 then
         os.remove(path)
@@ -122,9 +132,11 @@ function M.save()
 
     if not json_persistence.write_json_file(path, data) then
         vim.notify("Failed to write review session file", vim.log.levels.ERROR)
+        log.error("persistence: write failed", path)
         return false
     end
 
+    log.info("persistence: saved", #all_comments, "comment(s) to", path)
     return true
 end
 

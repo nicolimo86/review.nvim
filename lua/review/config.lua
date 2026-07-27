@@ -8,7 +8,8 @@
 ---@field auto_refresh ReviewAutoRefreshConfig
 ---@field persistence ReviewPersistenceConfig
 ---@field templates ReviewTemplate[]
----@field log_level string
+---@field log_level string Log level: DEBUG, INFO, WARN, ERROR
+---@field log_file string|nil Override the log file path (defaults to a file under the system temp dir)
 
 ---@class ReviewKeymaps
 ---@field toggle string
@@ -19,7 +20,6 @@
 ---@class ReviewUIConfig
 ---@field file_tree_width number Width of file tree panel (percentage)
 ---@field diff_view_mode "unified"|"split" Default diff view mode
----@field group_reviewed boolean Group reviewed files at bottom (faded)
 
 ---@class ReviewTmuxConfig
 ---@field target string Target window/pane (e.g., "!" for last active pane, or a window name)
@@ -69,7 +69,6 @@ M.defaults = {
     ui = {
         file_tree_width = 33,
         diff_view_mode = "unified",
-        group_reviewed = true,
     },
     tmux = {
         target = "!",
@@ -98,7 +97,8 @@ M.defaults = {
     persistence = {
         enabled = true,
     },
-    log_level = "INFO",
+    log_level = "WARN",
+    log_file = nil,
     templates = {
         { key = "e", label = "Extract", text = "Extract this into a separate function/component" },
         { key = "r", label = "Rename", text = "Rename to: " },

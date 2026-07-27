@@ -1,9 +1,12 @@
 local json_persistence = require("review.core.json_persistence")
+local log = require("review.core.log")
 local qc_state = require("review.quick_comments.state")
 
 local M = {}
 
 local FILENAME = "review-comments.json"
+
+local loaded_path = nil
 
 ---Get the path to the persistence file
 ---@return string|nil
@@ -39,14 +42,26 @@ function M.load()
         comment_id_counter = data.comment_id_counter or 0,
     })
 
+    loaded_path = path
+    log.info("quick comments: loaded", #(data.comments or {}), "from", path)
+
     return true
 end
 
 ---Save comments to disk
 ---@return boolean success
 function M.save()
+    if not require("review.config").get().persistence.enabled then
+        return false
+    end
+
     local path = M.get_path()
     if not path then
+        return false
+    end
+
+    if loaded_path and loaded_path ~= path then
+        log.warn("quick comments: refusing to save into", path, "loaded from", loaded_path)
         return false
     end
 
@@ -65,9 +80,11 @@ function M.save()
 
     if not json_persistence.write_json_file(path, data) then
         vim.notify("Failed to write quick comments file", vim.log.levels.ERROR)
+        log.error("quick comments: write failed", path)
         return false
     end
 
+    log.info("quick comments: saved", qc_state.count(), "to", path)
     return true
 end
 

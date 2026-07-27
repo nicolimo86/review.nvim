@@ -95,10 +95,16 @@ function M.add()
         end
     end
 
+    local function cancel()
+        vim.cmd("stopinsert")
+        close_input()
+    end
+
     vim.keymap.set("i", "<CR>", submit, { buffer = input_buf, nowait = true })
     vim.keymap.set("n", "<CR>", submit, { buffer = input_buf, nowait = true })
-    vim.keymap.set("i", "<Esc>", submit, { buffer = input_buf, nowait = true })
-    vim.keymap.set("i", "<C-c>", submit, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<C-c>", cancel, { buffer = input_buf, nowait = true })
     vim.keymap.set("i", "<S-CR>", "<CR>", { buffer = input_buf, nowait = true })
 
     vim.cmd("startinsert")

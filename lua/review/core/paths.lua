@@ -5,7 +5,7 @@ local M = {}
 ---@return string
 function M.get_relative_path(path)
     local cwd = vim.fn.getcwd()
-    if path:sub(1, #cwd) == cwd then
+    if cwd ~= "/" and path:sub(1, #cwd + 1) == cwd .. "/" then
         return path:sub(#cwd + 2)
     end
     return path

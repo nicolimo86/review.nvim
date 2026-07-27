@@ -19,15 +19,17 @@ function M.build(comments)
             table.insert(lines, "## " .. paths.get_relative_path(comment.file))
         end
 
-        local type_info = comment_types[comment.type]
+        local type_info = comment_types[comment.type] or comment_types.note
+        local line_number = tonumber(comment.line) or 0
         table.insert(lines, "")
-        table.insert(lines, string.format("**Line %d** - %s %s", comment.line, type_info.icon, type_info.label))
+        table.insert(lines, string.format("**Line %d** - %s %s", line_number, type_info.icon, type_info.label))
         if comment.context then
-            table.insert(lines, "```")
+            local fence = string.rep("`", math.max(3, #(comment.context:match("`+") or "") + 1))
+            table.insert(lines, fence)
             table.insert(lines, comment.context)
-            table.insert(lines, "```")
+            table.insert(lines, fence)
         end
-        table.insert(lines, comment.text)
+        table.insert(lines, comment.text or "")
     end
 
     return table.concat(lines, "\n")

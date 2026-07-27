@@ -7,6 +7,7 @@ local file_tree = require("review.ui.file_tree")
 local git = require("review.core.git")
 local highlights = require("review.ui.highlights")
 local layout = require("review.ui.layout")
+local log = require("review.core.log")
 local persistence = require("review.core.persistence")
 local state = require("review.state")
 local ui_util = require("review.ui.util")
@@ -58,8 +59,17 @@ end
 ---Open the review UI
 function M.open()
     if state.state.is_open then
+        log.debug("ui: open ignored, already open")
         return
     end
+
+    if not git.get_root() then
+        vim.notify("review.nvim: not inside a git repository", vim.log.levels.WARN)
+        log.warn("ui: open aborted, not a git repository")
+        return
+    end
+
+    log.info("ui: opening review")
 
     -- Hide tabline
     saved_showtabline = vim.o.showtabline
@@ -71,6 +81,14 @@ function M.open()
 
     state.state.is_open = true
     state.state.diff_mode = config.get().ui.diff_view_mode
+    log.info(
+        "ui: layout mounted base_win=",
+        layout.base_winid,
+        "diff_win=",
+        l.diff_view and l.diff_view.winid,
+        "mode=",
+        state.state.diff_mode
+    )
 
     -- Check for saved session
     local has_session = config.get().persistence.enabled and persistence.exists()
@@ -287,6 +305,8 @@ local function do_close(action)
     if not state.state.is_open then
         return
     end
+
+    log.info("ui: closing review action=", action)
 
     -- Handle export based on action
     if action == "copy" or action == "copy_and_send" then

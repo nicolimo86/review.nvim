@@ -17,7 +17,7 @@ function M.setup(opts)
     local cfg = config.get()
 
     -- Initialize logging
-    log.setup(cfg.log_level)
+    log.setup(cfg.log_level, cfg.log_file)
     log.info("review.nvim setup complete")
 
     -- Initialize state with config defaults
