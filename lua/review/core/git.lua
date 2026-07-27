@@ -372,27 +372,41 @@ end
 ---@param base string Base to compare against
 ---@param staged boolean Whether to look in the index rather than the worktree
 ---@return string|nil
+local rename_source_cache = {}
+
 local function find_rename_source(git_root, file, base, staged)
-    local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-status" }
-    if staged then
-        table.insert(cmd, "--cached")
-    else
-        table.insert(cmd, base)
-    end
+    local cache_key = (staged and "staged" or base) .. "\0" .. git_root
+    local cached = rename_source_cache[cache_key]
 
-    local result = vim.system(cmd, { text = true, cwd = git_root }):wait()
-    if result.code ~= 0 then
-        return nil
-    end
-
-    for _, line in ipairs(vim.split(result.stdout or "", "\n", { plain = true })) do
-        local parsed = M.parse_name_status_line(line)
-        if parsed and parsed.path == file and parsed.rename_from then
-            return parsed.rename_from
+    if not cached then
+        local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-status" }
+        if staged then
+            table.insert(cmd, "--cached")
+        else
+            table.insert(cmd, base)
         end
+
+        local result = vim.system(cmd, { text = true, cwd = git_root }):wait()
+        if result.code ~= 0 then
+            return nil
+        end
+
+        cached = {}
+        for _, line in ipairs(vim.split(result.stdout or "", "\n", { plain = true })) do
+            local parsed = M.parse_name_status_line(line)
+            if parsed and parsed.rename_from then
+                cached[parsed.path] = parsed.rename_from
+            end
+        end
+        rename_source_cache[cache_key] = cached
     end
 
-    return nil
+    return cached[file]
+end
+
+---Drop memoized rename lookups; call when the working tree or index changes
+function M.clear_rename_cache()
+    rename_source_cache = {}
 end
 
 ---@class GetDiffOpts
@@ -448,9 +462,7 @@ function M.get_diff(file, base, base_end, opts)
         return untracked_diff(git_root, file)
     end
 
-    -- Determine if file has only staged changes (no unstaged).
-    -- Only valid against HEAD: git diff --cached compares the index to HEAD
-    -- and cannot honour another base.
+    -- Determine if file has only staged changes (no unstaged)
     local is_staged_only = base == "HEAD" and file_status == "staged_only"
     if base == "HEAD" and not file_status then
         local unstaged_result = vim.system(
@@ -502,8 +514,6 @@ function M.get_diff(file, base, base_end, opts)
         return { success = false, output = "", error = result.stderr }
     end
 
-    -- Rename detection cannot see the source when the pathspec names only the
-    -- new path, so such a file comes back as a whole-file addition
     if result.stdout:match("\nnew file mode") then
         local rename_from = opts and opts.rename_from or find_rename_source(git_root, file, base, is_staged_only)
         if rename_from then
@@ -639,8 +649,6 @@ function M.restore_file(file)
             return true
         end
 
-        -- A file staged for addition does not exist in HEAD, so checkout fails.
-        -- Unstage it and remove it from the worktree instead.
         local removed = vim.system(
             { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "rm", "-f", "--quiet", "--", file },
             { text = true, cwd = git_root }
@@ -1500,14 +1508,20 @@ end
 ---Buffer raw chunks into complete lines, calling on_line for each
 ---@param on_line fun(line: string)
 ---@return fun(err: string|nil, data: string|nil)
-local function line_buffered_handler(on_line)
+local function line_buffered_handler(on_line, captured)
     local buffer = ""
+    local function emit(line)
+        if captured then
+            table.insert(captured, line)
+        end
+        vim.schedule(function()
+            on_line(line)
+        end)
+    end
     return function(_err, data)
         if not data then
             if buffer ~= "" then
-                vim.schedule(function()
-                    on_line(buffer)
-                end)
+                emit(buffer)
                 buffer = ""
             end
             return
@@ -1520,9 +1534,7 @@ local function line_buffered_handler(on_line)
             end
             local line = buffer:sub(1, newline_pos - 1)
             buffer = buffer:sub(newline_pos + 1)
-            vim.schedule(function()
-                on_line(line)
-            end)
+            emit(line)
         end
     end
 end
@@ -1548,17 +1560,19 @@ function M.commit_streaming(message, on_output, callback, description)
 
     log.info("commit_streaming:", table.concat(cmd, " "))
 
+    local captured = {}
+
     vim.system(cmd, {
         cwd = git_root,
-        stdout = line_buffered_handler(on_output),
-        stderr = line_buffered_handler(on_output),
+        stdout = line_buffered_handler(on_output, captured),
+        stderr = line_buffered_handler(on_output, captured),
     }, function(result)
         vim.schedule(function()
             if result.code == 0 then
                 log.info("commit_streaming: success")
                 callback(true, nil)
             else
-                local error_output = vim.trim((result.stderr or "") .. (result.stdout or ""))
+                local error_output = vim.trim(table.concat(captured, "\n"))
                 log.error("commit_streaming: failed:", error_output)
                 callback(false, error_output ~= "" and error_output or "Commit failed")
             end
@@ -1576,16 +1590,19 @@ function M.amend_no_edit_streaming(on_output, callback)
         return
     end
 
+    local captured = {}
+
     vim.system({ "git", "-c", "core.quotepath=false", "--literal-pathspecs", "commit", "--amend", "--no-edit" }, {
         cwd = git_root,
-        stdout = line_buffered_handler(on_output),
-        stderr = line_buffered_handler(on_output),
+        stdout = line_buffered_handler(on_output, captured),
+        stderr = line_buffered_handler(on_output, captured),
     }, function(result)
         vim.schedule(function()
             if result.code == 0 then
                 callback(true, nil)
             else
-                local error_output = vim.trim((result.stderr or "") .. (result.stdout or ""))
+                local error_output = vim.trim(table.concat(captured, "\n"))
+                log.error("amend_no_edit_streaming: failed:", error_output)
                 callback(false, error_output ~= "" and error_output or "Amend failed")
             end
         end)

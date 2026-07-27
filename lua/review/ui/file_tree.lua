@@ -1838,6 +1838,8 @@ function M.refresh(on_complete)
         return
     end
 
+    git.clear_rename_cache()
+
     local bufnr = M.current.bufnr
     local winid = M.current.winid
 
