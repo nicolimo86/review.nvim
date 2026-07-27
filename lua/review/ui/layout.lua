@@ -24,6 +24,9 @@ M.current = nil
 M.prev_tab = nil
 
 ---@type number|nil
+M.review_tab = nil
+
+---@type number|nil
 M.base_winid = nil
 
 ---@type number|nil
@@ -266,6 +269,7 @@ function M.create()
     M.prev_tab = vim.api.nvim_get_current_tabpage()
 
     vim.cmd("tabnew")
+    M.review_tab = vim.api.nvim_get_current_tabpage()
 
     local base_buf = vim.api.nvim_get_current_buf()
     vim.api.nvim_set_option_value("buftype", "nofile", { buf = base_buf })
@@ -717,6 +721,7 @@ function M.unmount()
         end
 
         local prev_tab = M.prev_tab
+        local review_tab = M.review_tab
 
         local float_wins = {}
         local panel_buffers = {}
@@ -739,14 +744,15 @@ function M.unmount()
 
         M.current = nil
         M.prev_tab = nil
+        M.review_tab = nil
 
         for _, winid in ipairs(float_wins) do
             pcall(vim.api.nvim_win_close, winid, true)
         end
 
-        pcall(function()
-            vim.cmd("tabclose")
-        end)
+        if review_tab and vim.api.nvim_tabpage_is_valid(review_tab) then
+            pcall(vim.cmd.tabclose, vim.api.nvim_tabpage_get_number(review_tab))
+        end
 
         if prev_tab and vim.api.nvim_tabpage_is_valid(prev_tab) then
             vim.api.nvim_set_current_tabpage(prev_tab)
