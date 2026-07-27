@@ -30,11 +30,14 @@ function M.setup()
         elseif subcommand == "commit" then
             local sha = args[2]
             if sha then
+                local was_open = ui.is_open()
+                if was_open then
+                    ui.close(false)
+                end
                 state.state.base = sha
+                state.state.base_end = nil
                 vim.notify("Comparing against: " .. sha, vim.log.levels.INFO)
-                -- Refresh if UI is open
-                if ui.is_open() then
-                    ui.close()
+                if was_open then
                     ui.open()
                 end
             else

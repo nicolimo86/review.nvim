@@ -1401,7 +1401,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         local git_root = git.get_root()
         local filepath = git_root .. "/" .. file
         local ui = require("review.ui")
-        ui.close()
+        ui.close(false)
         vim.cmd("edit " .. vim.fn.fnameescape(filepath))
         if source_line then
             vim.api.nvim_win_set_cursor(0, { source_line, 0 })
