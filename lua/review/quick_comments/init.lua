@@ -57,8 +57,8 @@ function M.add()
         "FloatBorder:" .. type_info.border_hl .. ",FloatTitle:" .. type_info.title_hl,
         { win = input_win }
     )
-    vim.wo[input_win].wrap = true
-    vim.wo[input_win].linebreak = true
+    vim.api.nvim_set_option_value("wrap", true, { win = input_win })
+    vim.api.nvim_set_option_value("linebreak", true, { win = input_win })
 
     local get_current_type = ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
 

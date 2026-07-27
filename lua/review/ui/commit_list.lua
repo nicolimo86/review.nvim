@@ -451,7 +451,7 @@ function M.create(layout_component, cbs)
     render(layout_component.bufnr, commits, selected_index, layout_component.winid)
     setup_keymaps(layout_component.bufnr)
 
-    vim.wo[layout_component.winid].spell = false
+    vim.api.nvim_set_option_value("spell", false, { win = layout_component.winid })
 
     local cursor_line = commit_index_to_line(selected_index)
     if vim.api.nvim_win_is_valid(layout_component.winid) then

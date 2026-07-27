@@ -609,7 +609,7 @@ function M.create(layout_component, cbs)
     current_line_map = render(layout_component.bufnr, current_nodes)
     setup_keymaps(layout_component.bufnr)
 
-    vim.wo[layout_component.winid].spell = false
+    vim.api.nvim_set_option_value("spell", false, { win = layout_component.winid })
 
     return M.current
 end

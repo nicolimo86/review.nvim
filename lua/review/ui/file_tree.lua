@@ -713,8 +713,8 @@ end
 ---@param nodes FileNode[]
 ---@param winid number|nil
 local function render_to_buffer(bufnr, nodes, winid)
-    vim.bo[bufnr].readonly = false
-    vim.bo[bufnr].modifiable = true
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
 
     -- Get window width for centered separators
     local width = 40 -- default
@@ -848,8 +848,8 @@ local function render_to_buffer(bufnr, nodes, winid)
         end
     end
 
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].readonly = true
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 end
 
 ---Fetch unpushed count and update the winbar title
@@ -904,7 +904,7 @@ local function create_commit_progress(title, message)
     local frame = 0
     local log_lines = {}
     local progress_buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[progress_buf].bufhidden = "wipe"
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = progress_buf })
 
     local separator = string.rep("─", PROGRESS_WIDTH)
 
@@ -988,17 +988,17 @@ local function commit_flow(callbacks)
 
     local subject_buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(subject_buf, 0, -1, false, { "" })
-    vim.bo[subject_buf].buftype = "acwrite"
-    vim.bo[subject_buf].filetype = "gitcommit"
-    vim.bo[subject_buf].omnifunc = ""
-    vim.bo[subject_buf].completefunc = ""
+    vim.api.nvim_set_option_value("buftype", "acwrite", { buf = subject_buf })
+    vim.api.nvim_set_option_value("filetype", "gitcommit", { buf = subject_buf })
+    vim.api.nvim_set_option_value("omnifunc", "", { buf = subject_buf })
+    vim.api.nvim_set_option_value("completefunc", "", { buf = subject_buf })
 
     local desc_buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(desc_buf, 0, -1, false, { "" })
-    vim.bo[desc_buf].buftype = "acwrite"
-    vim.bo[desc_buf].filetype = "gitcommit"
-    vim.bo[desc_buf].omnifunc = ""
-    vim.bo[desc_buf].completefunc = ""
+    vim.api.nvim_set_option_value("buftype", "acwrite", { buf = desc_buf })
+    vim.api.nvim_set_option_value("filetype", "gitcommit", { buf = desc_buf })
+    vim.api.nvim_set_option_value("omnifunc", "", { buf = desc_buf })
+    vim.api.nvim_set_option_value("completefunc", "", { buf = desc_buf })
 
     local commit_winhighlight = "NormalFloat:Normal,FloatBorder:ReviewFloatBorder,FloatTitle:ReviewFloatTitle"
 
@@ -1013,9 +1013,9 @@ local function commit_flow(callbacks)
         title = " Subject ",
         title_pos = "center",
     })
-    vim.wo[subject_win].cursorline = false
-    vim.wo[subject_win].wrap = false
-    vim.wo[subject_win].winhighlight = commit_winhighlight
+    vim.api.nvim_set_option_value("cursorline", false, { win = subject_win })
+    vim.api.nvim_set_option_value("wrap", false, { win = subject_win })
+    vim.api.nvim_set_option_value("winhighlight", commit_winhighlight, { win = subject_win })
 
     local desc_win = vim.api.nvim_open_win(desc_buf, false, {
         relative = "editor",
@@ -1030,9 +1030,9 @@ local function commit_flow(callbacks)
         footer = " <CR> confirm │ <Tab> switch │ q/Esc cancel ",
         footer_pos = "center",
     })
-    vim.wo[desc_win].cursorline = false
-    vim.wo[desc_win].wrap = true
-    vim.wo[desc_win].winhighlight = commit_winhighlight
+    vim.api.nvim_set_option_value("cursorline", false, { win = desc_win })
+    vim.api.nvim_set_option_value("wrap", true, { win = desc_win })
+    vim.api.nvim_set_option_value("winhighlight", commit_winhighlight, { win = desc_win })
 
     vim.cmd("startinsert")
 
@@ -1117,7 +1117,7 @@ local function commit_flow(callbacks)
     end
 
     for _, bufnr in ipairs({ subject_buf, desc_buf }) do
-        vim.bo[bufnr].complete = ""
+        vim.api.nvim_set_option_value("complete", "", { buf = bufnr })
 
         vim.api.nvim_buf_call(bufnr, function()
             local cmp_ok, cmp = pcall(require, "cmp")
@@ -1733,7 +1733,7 @@ function M.create(layout_component, callbacks)
     setup_keymaps(bufnr, callbacks)
 
     -- Disable spell check on file tree
-    vim.wo[layout_component.winid].spell = false
+    vim.api.nvim_set_option_value("spell", false, { win = layout_component.winid })
 
     -- Show initial state (no refreshing indicator — nothing is stale yet)
     update_winbar(layout_component.winid, 0)

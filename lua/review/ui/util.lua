@@ -59,11 +59,11 @@ end
 ---@param bufnr number
 ---@param fn function
 function M.with_modifiable(bufnr, fn)
-    vim.bo[bufnr].readonly = false
-    vim.bo[bufnr].modifiable = true
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
     local ok, err = pcall(fn)
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].readonly = true
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
     if not ok then
         error(err, 0)
     end
@@ -73,10 +73,10 @@ end
 ---@return number bufnr
 function M.create_comment_input_buffer()
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.bo[bufnr].buftype = "nofile"
-    vim.bo[bufnr].filetype = "markdown"
-    vim.bo[bufnr].completefunc = ""
-    vim.bo[bufnr].omnifunc = ""
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = bufnr })
+    vim.api.nvim_set_option_value("filetype", "markdown", { buf = bufnr })
+    vim.api.nvim_set_option_value("completefunc", "", { buf = bufnr })
+    vim.api.nvim_set_option_value("omnifunc", "", { buf = bufnr })
     vim.b[bufnr].copilot_enabled = false
     return bufnr
 end
@@ -201,11 +201,11 @@ function M.select(opts)
     table.insert(lines, "")
 
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.bo[bufnr].buftype = "nofile"
-    vim.bo[bufnr].bufhidden = "wipe"
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = bufnr })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = bufnr })
 
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-    vim.bo[bufnr].modifiable = false
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
 
     local height = #lines
     local row = math.floor((vim.o.lines - height) / 2) - 1
@@ -234,11 +234,11 @@ function M.select(opts)
         "FloatBorder:ReviewFloatBorder,FloatTitle:ReviewFloatTitle,Normal:Normal",
         { win = winid }
     )
-    vim.wo[winid].cursorline = false
+    vim.api.nvim_set_option_value("cursorline", false, { win = winid })
 
     local saved_guicursor = vim.o.guicursor
     local saved_cursor_hl = vim.api.nvim_get_hl(0, { name = "Cursor" })
-    vim.o.guicursor = "a:Cursor/lCursor-blinkwait0-blinkon0-blinkoff0"
+    vim.api.nvim_set_option_value("guicursor", "a:Cursor/lCursor-blinkwait0-blinkon0-blinkoff0", {})
     vim.api.nvim_set_hl(0, "Cursor", { blend = 100 })
     vim.schedule(function()
         vim.cmd("redraw")
@@ -250,13 +250,13 @@ function M.select(opts)
     local selected = 1
 
     local function render_items()
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         for index, item in ipairs(items) do
             local line_index = item_start_line + index - 1
             local prefix = index == selected and "  > " or "    "
             vim.api.nvim_buf_set_lines(bufnr, line_index, line_index + 1, false, { prefix .. item })
         end
-        vim.bo[bufnr].modifiable = false
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
 
         vim.api.nvim_buf_clear_namespace(bufnr, namespace, item_start_line, item_start_line + #items)
         local selected_line = item_start_line + selected - 1
@@ -272,7 +272,7 @@ function M.select(opts)
             return
         end
         closed = true
-        vim.o.guicursor = saved_guicursor
+        vim.api.nvim_set_option_value("guicursor", saved_guicursor, {})
         vim.api.nvim_set_hl(0, "Cursor", saved_cursor_hl)
         vim.cmd("redraw")
         if vim.api.nvim_win_is_valid(winid) then

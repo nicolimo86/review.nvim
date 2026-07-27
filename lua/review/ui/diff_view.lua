@@ -559,14 +559,14 @@ end
 ---@return table[]|nil render_lines
 local function render_diff_async(bufnr, file, expected_generation)
     if is_lock_file(file) then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             "",
             "  Lock file diff not shown.",
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         return nil
     end
 
@@ -582,27 +582,27 @@ local function render_diff_async(bufnr, file, expected_generation)
     end
 
     if not result.success then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             "",
             "  Error getting diff:",
             "  " .. (result.error or "Unknown error"),
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         return nil
     end
 
     if result.output == "" then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             "",
             "  No changes in this file.",
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         return nil
     end
 
@@ -610,15 +610,15 @@ local function render_diff_async(bufnr, file, expected_generation)
     local parsed = diff_parser.parse(result.output)
 
     if parsed.binary and #parsed.hunks == 0 then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             file,
             "",
             "  Binary file — no diff to display.",
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         return nil
     end
 
@@ -639,11 +639,11 @@ local function render_diff_async(bufnr, file, expected_generation)
     end
 
     -- Set buffer content
-    vim.bo[bufnr].readonly = false
-    vim.bo[bufnr].modifiable = true
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, display_lines)
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].readonly = true
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
     -- Stage 1: apply diff highlights immediately (no I/O)
     local line_pairs = find_line_pairs(render_lines)
@@ -720,14 +720,14 @@ end
 local function render_split_diff(old_bufnr, new_bufnr, file)
     if is_lock_file(file) then
         for _, bufnr in ipairs({ old_bufnr, new_bufnr }) do
-            vim.bo[bufnr].readonly = false
-            vim.bo[bufnr].modifiable = true
+            vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+            vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
             vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
                 "",
                 "  Lock file diff not shown.",
             })
-            vim.bo[bufnr].modifiable = false
-            vim.bo[bufnr].readonly = true
+            vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+            vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         end
         return nil, nil
     end
@@ -754,16 +754,16 @@ local function render_split_diff(old_bufnr, new_bufnr, file)
     end
 
     for _, bufnr in ipairs({ old_bufnr, new_bufnr }) do
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
     end
 
     vim.api.nvim_buf_set_lines(old_bufnr, 0, -1, false, old_display)
     vim.api.nvim_buf_set_lines(new_bufnr, 0, -1, false, new_display)
 
     for _, bufnr in ipairs({ old_bufnr, new_bufnr }) do
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
     end
 
     apply_treesitter_highlights(old_bufnr, old_lines, old_display, file)
@@ -1162,8 +1162,8 @@ local function add_comment()
             for _, winid in ipairs({ old_win, new_win }) do
                 if vim.api.nvim_win_is_valid(winid) then
                     table.insert(split_windows, winid)
-                    vim.wo[winid].scrollbind = false
-                    vim.wo[winid].cursorbind = false
+                    vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
+                    vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
                 end
             end
         end
@@ -1195,8 +1195,8 @@ local function add_comment()
         "FloatBorder:" .. type_info.border_hl .. ",FloatTitle:" .. type_info.title_hl,
         { win = input_win }
     )
-    vim.wo[input_win].wrap = true
-    vim.wo[input_win].linebreak = true
+    vim.api.nvim_set_option_value("wrap", true, { win = input_win })
+    vim.api.nvim_set_option_value("linebreak", true, { win = input_win })
 
     local get_current_type = ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
 
@@ -1213,8 +1213,8 @@ local function add_comment()
         end
         for _, winid in ipairs(split_windows) do
             if vim.api.nvim_win_is_valid(winid) then
-                vim.wo[winid].scrollbind = true
-                vim.wo[winid].cursorbind = true
+                vim.api.nvim_set_option_value("scrollbind", true, { win = winid })
+                vim.api.nvim_set_option_value("cursorbind", true, { win = winid })
             end
         end
         if #split_windows > 0 then
@@ -1523,13 +1523,13 @@ local function apply_diff_view_win_options(winid, _bufnr)
         return
     end
 
-    vim.wo[winid].spell = false
-    vim.wo[winid].list = false
+    vim.api.nvim_set_option_value("spell", false, { win = winid })
+    vim.api.nvim_set_option_value("list", false, { win = winid })
 
     local ext = state.state.current_file and vim.fn.fnamemodify(state.state.current_file, ":e") or ""
     local wrap = ext == "md" or ext == "txt"
-    vim.wo[winid].wrap = wrap
-    vim.wo[winid].linebreak = wrap
+    vim.api.nvim_set_option_value("wrap", wrap, { win = winid })
+    vim.api.nvim_set_option_value("linebreak", wrap, { win = winid })
 end
 
 ---Build a set of 0-indexed lines that have comments for a file
@@ -1793,8 +1793,8 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
     local max_preview_files = 50
 
     if #files > max_preview_files then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             "",
             "  Commit has " .. #files .. " changed files.",
@@ -1802,8 +1802,8 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
             "",
             "  Press <CR> to select this commit and browse files individually.",
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
         M.current = {
             bufnr = bufnr,
@@ -1816,14 +1816,14 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
     end
 
     if #files == 0 then
-        vim.bo[bufnr].readonly = false
-        vim.bo[bufnr].modifiable = true
+        vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {
             "",
             "  No changes in this commit.",
         })
-        vim.bo[bufnr].modifiable = false
-        vim.bo[bufnr].readonly = true
+        vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+        vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
         M.current = {
             bufnr = bufnr,
@@ -1917,11 +1917,11 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
         end
     end
 
-    vim.bo[bufnr].readonly = false
-    vim.bo[bufnr].modifiable = true
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, all_display_lines)
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].readonly = true
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
     vim.api.nvim_buf_clear_namespace(bufnr, ns_syntax, 0, -1)
 
@@ -2048,10 +2048,10 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
     pcall(vim.api.nvim_buf_set_name, bufnr, "Review: commit preview")
 
     if vim.api.nvim_win_is_valid(layout_component.winid) then
-        vim.wo[layout_component.winid].spell = false
-        vim.wo[layout_component.winid].list = false
-        vim.wo[layout_component.winid].wrap = false
-        vim.wo[layout_component.winid].linebreak = false
+        vim.api.nvim_set_option_value("spell", false, { win = layout_component.winid })
+        vim.api.nvim_set_option_value("list", false, { win = layout_component.winid })
+        vim.api.nvim_set_option_value("wrap", false, { win = layout_component.winid })
+        vim.api.nvim_set_option_value("linebreak", false, { win = layout_component.winid })
     end
 end
 

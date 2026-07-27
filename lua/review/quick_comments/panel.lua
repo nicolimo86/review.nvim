@@ -160,10 +160,10 @@ end
 ---@return number bufnr
 local function create_buffer()
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.bo[bufnr].buftype = "nofile"
-    vim.bo[bufnr].bufhidden = "wipe"
-    vim.bo[bufnr].swapfile = false
-    vim.bo[bufnr].filetype = "review-quick-comments"
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = bufnr })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = bufnr })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("filetype", "review-quick-comments", { buf = bufnr })
 
     return bufnr
 end
@@ -216,9 +216,9 @@ local function setup_keymaps(bufnr)
         end
 
         local popup_bufnr = vim.api.nvim_create_buf(false, true)
-        vim.bo[popup_bufnr].bufhidden = "wipe"
+        vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = popup_bufnr })
         vim.api.nvim_buf_set_lines(popup_bufnr, 0, -1, false, popup_lines)
-        vim.bo[popup_bufnr].modifiable = false
+        vim.api.nvim_set_option_value("modifiable", false, { buf = popup_bufnr })
 
         vim.api.nvim_buf_add_highlight(popup_bufnr, ns_panel, type_info.highlight, 0, 0, -1)
         vim.api.nvim_buf_add_highlight(popup_bufnr, ns_panel, "ReviewBorder", 1, 0, -1)
@@ -232,7 +232,7 @@ local function setup_keymaps(bufnr)
             style = "minimal",
             border = "rounded",
         })
-        vim.wo[popup_winid].wrap = true
+        vim.api.nvim_set_option_value("wrap", true, { win = popup_winid })
 
         vim.api.nvim_create_autocmd({ "CursorMoved", "BufLeave" }, {
             buffer = panel.bufnr,
@@ -325,14 +325,14 @@ function M.open()
     vim.api.nvim_win_set_width(panel.winid, width)
 
     -- Window options
-    vim.wo[panel.winid].number = false
-    vim.wo[panel.winid].relativenumber = false
-    vim.wo[panel.winid].signcolumn = "no"
-    vim.wo[panel.winid].foldcolumn = "0"
-    vim.wo[panel.winid].wrap = true
-    vim.wo[panel.winid].linebreak = true
-    vim.wo[panel.winid].cursorline = true
-    vim.wo[panel.winid].winfixwidth = true
+    vim.api.nvim_set_option_value("number", false, { win = panel.winid })
+    vim.api.nvim_set_option_value("relativenumber", false, { win = panel.winid })
+    vim.api.nvim_set_option_value("signcolumn", "no", { win = panel.winid })
+    vim.api.nvim_set_option_value("foldcolumn", "0", { win = panel.winid })
+    vim.api.nvim_set_option_value("wrap", true, { win = panel.winid })
+    vim.api.nvim_set_option_value("linebreak", true, { win = panel.winid })
+    vim.api.nvim_set_option_value("cursorline", true, { win = panel.winid })
+    vim.api.nvim_set_option_value("winfixwidth", true, { win = panel.winid })
 
     -- Set up keymaps
     setup_keymaps(panel.bufnr)

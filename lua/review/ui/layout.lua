@@ -82,29 +82,29 @@ local function update_border_highlights()
         local component = M.current[panel_def.name]
         if component and vim.api.nvim_win_is_valid(component.winid) then
             if component.winid == current_win then
-                vim.wo[component.winid].winhighlight = ACTIVE_SIDEBAR_WINHIGHLIGHT
-                vim.wo[component.winid].cursorline = true
+                vim.api.nvim_set_option_value("winhighlight", ACTIVE_SIDEBAR_WINHIGHLIGHT, { win = component.winid })
+                vim.api.nvim_set_option_value("cursorline", true, { win = component.winid })
             else
                 local base = INACTIVE_WINHIGHLIGHT .. ",CursorLine:ReviewSelected"
-                vim.wo[component.winid].winhighlight = base
-                vim.wo[component.winid].cursorline = false
+                vim.api.nvim_set_option_value("winhighlight", base, { win = component.winid })
+                vim.api.nvim_set_option_value("cursorline", false, { win = component.winid })
             end
         end
     end
     local branch_info = M.current.branch_info
     if branch_info and vim.api.nvim_win_is_valid(branch_info.winid) then
-        vim.wo[branch_info.winid].winhighlight = INACTIVE_WINHIGHLIGHT
-        vim.wo[branch_info.winid].cursorline = false
+        vim.api.nvim_set_option_value("winhighlight", INACTIVE_WINHIGHLIGHT, { win = branch_info.winid })
+        vim.api.nvim_set_option_value("cursorline", false, { win = branch_info.winid })
     end
     local diff_panels = { M.current.diff_view, M.current.diff_view_old, M.current.diff_view_new }
     for _, component in ipairs(diff_panels) do
         if component and vim.api.nvim_win_is_valid(component.winid) then
             if component.winid == current_win then
-                vim.wo[component.winid].winhighlight = ACTIVE_DIFF_WINHIGHLIGHT
-                vim.wo[component.winid].cursorline = true
+                vim.api.nvim_set_option_value("winhighlight", ACTIVE_DIFF_WINHIGHLIGHT, { win = component.winid })
+                vim.api.nvim_set_option_value("cursorline", true, { win = component.winid })
             else
-                vim.wo[component.winid].winhighlight = INACTIVE_WINHIGHLIGHT
-                vim.wo[component.winid].cursorline = false
+                vim.api.nvim_set_option_value("winhighlight", INACTIVE_WINHIGHLIGHT, { win = component.winid })
+                vim.api.nvim_set_option_value("cursorline", false, { win = component.winid })
             end
         end
     end
@@ -196,27 +196,31 @@ end
 ---Apply file tree window options
 ---@param winid number
 local function apply_tree_win_options(winid)
-    vim.wo[winid].number = false
-    vim.wo[winid].relativenumber = false
-    vim.wo[winid].cursorline = true
-    vim.wo[winid].signcolumn = "no"
-    vim.wo[winid].wrap = false
-    vim.wo[winid].scrollbind = false
-    vim.wo[winid].cursorbind = false
-    vim.wo[winid].winhighlight = INACTIVE_WINHIGHLIGHT .. ",CursorLine:ReviewSelected"
+    vim.api.nvim_set_option_value("number", false, { win = winid })
+    vim.api.nvim_set_option_value("relativenumber", false, { win = winid })
+    vim.api.nvim_set_option_value("cursorline", true, { win = winid })
+    vim.api.nvim_set_option_value("signcolumn", "no", { win = winid })
+    vim.api.nvim_set_option_value("wrap", false, { win = winid })
+    vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
+    vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
+    vim.api.nvim_set_option_value(
+        "winhighlight",
+        INACTIVE_WINHIGHLIGHT .. ",CursorLine:ReviewSelected",
+        { win = winid }
+    )
 end
 
 ---Apply diff view window options
 ---@param winid number
 local function apply_diff_win_options(winid)
-    vim.wo[winid].number = true
-    vim.wo[winid].relativenumber = false
-    vim.wo[winid].cursorline = false
-    vim.wo[winid].signcolumn = "yes"
-    vim.wo[winid].wrap = false
-    vim.wo[winid].scrollbind = false
-    vim.wo[winid].cursorbind = false
-    vim.wo[winid].winhighlight = INACTIVE_WINHIGHLIGHT
+    vim.api.nvim_set_option_value("number", true, { win = winid })
+    vim.api.nvim_set_option_value("relativenumber", false, { win = winid })
+    vim.api.nvim_set_option_value("cursorline", false, { win = winid })
+    vim.api.nvim_set_option_value("signcolumn", "yes", { win = winid })
+    vim.api.nvim_set_option_value("wrap", false, { win = winid })
+    vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
+    vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
+    vim.api.nvim_set_option_value("winhighlight", INACTIVE_WINHIGHLIGHT, { win = winid })
 end
 
 ---Create a scratch buffer with the given filetype
@@ -224,11 +228,11 @@ end
 ---@return number bufnr
 local function create_panel_buffer(filetype)
     local bufnr = vim.api.nvim_create_buf(false, true)
-    vim.bo[bufnr].buftype = "nofile"
-    vim.bo[bufnr].swapfile = false
-    vim.bo[bufnr].filetype = filetype
-    vim.bo[bufnr].modifiable = true
-    vim.bo[bufnr].readonly = false
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = bufnr })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("filetype", filetype, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
     return bufnr
 end
 
@@ -264,10 +268,10 @@ function M.create()
     vim.cmd("tabnew")
 
     local base_buf = vim.api.nvim_get_current_buf()
-    vim.bo[base_buf].buftype = "nofile"
-    vim.bo[base_buf].bufhidden = "wipe"
-    vim.bo[base_buf].buflisted = false
-    vim.bo[base_buf].swapfile = false
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = base_buf })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = base_buf })
+    vim.api.nvim_set_option_value("buflisted", false, { buf = base_buf })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = base_buf })
     local base_win = vim.api.nvim_get_current_win()
     M.base_winid = base_win
 
@@ -280,7 +284,7 @@ function M.create()
         local winid = open_float(bufnr, positions[panel_def.name], " " .. panel_def.title)
         apply_tree_win_options(winid)
         if not panel_def.is_interactive then
-            vim.wo[winid].cursorline = false
+            vim.api.nvim_set_option_value("cursorline", false, { win = winid })
         end
         M.current[panel_def.name] = { bufnr = bufnr, winid = winid }
     end
@@ -519,7 +523,7 @@ function M.show_file_tree()
             local winid = open_float(component.bufnr, pos, " " .. panel_def.title)
             apply_tree_win_options(winid)
             if not panel_def.is_interactive then
-                vim.wo[winid].cursorline = false
+                vim.api.nvim_set_option_value("cursorline", false, { win = winid })
             end
             component.winid = winid
             if panel_def.name == "file_tree" then
@@ -576,10 +580,10 @@ function M.enter_split_mode()
     local half_width = math.floor(diff_pos.width / 2)
 
     local old_buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[old_buf].buftype = "nofile"
-    vim.bo[old_buf].swapfile = false
-    vim.bo[old_buf].modifiable = true
-    vim.bo[old_buf].readonly = false
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = old_buf })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = old_buf })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = old_buf })
+    vim.api.nvim_set_option_value("readonly", false, { buf = old_buf })
 
     local old_pos = {
         row = diff_pos.row,
@@ -599,10 +603,10 @@ function M.enter_split_mode()
     local new_win = open_float(M.current.diff_view.bufnr, new_pos, nil)
     apply_diff_win_options(new_win)
 
-    vim.wo[old_win].scrollbind = true
-    vim.wo[old_win].cursorbind = true
-    vim.wo[new_win].scrollbind = true
-    vim.wo[new_win].cursorbind = true
+    vim.api.nvim_set_option_value("scrollbind", true, { win = old_win })
+    vim.api.nvim_set_option_value("cursorbind", true, { win = old_win })
+    vim.api.nvim_set_option_value("scrollbind", true, { win = new_win })
+    vim.api.nvim_set_option_value("cursorbind", true, { win = new_win })
 
     M.current.diff_view.winid = new_win
     M.current.diff_view_old = { bufnr = old_buf, winid = old_win }
@@ -633,8 +637,8 @@ function M.exit_split_mode()
         or (new_component and prev_win == new_component.winid)
 
     if new_component and vim.api.nvim_win_is_valid(new_component.winid) then
-        vim.wo[new_component.winid].scrollbind = false
-        vim.wo[new_component.winid].cursorbind = false
+        vim.api.nvim_set_option_value("scrollbind", false, { win = new_component.winid })
+        vim.api.nvim_set_option_value("cursorbind", false, { win = new_component.winid })
         vim.api.nvim_win_close(new_component.winid, true)
     end
 

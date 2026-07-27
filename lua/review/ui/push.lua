@@ -11,7 +11,7 @@ local SPINNER_FRAMES = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧",
 local function create_spinner(label)
     local popup_width = #label + 6
     local popup_buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[popup_buf].bufhidden = "wipe"
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = popup_buf })
     vim.api.nvim_buf_set_lines(popup_buf, 0, -1, false, {
         " " .. SPINNER_FRAMES[1] .. " " .. label,
     })

@@ -27,9 +27,9 @@ local function update_branch_info(branch_name)
     local branch_info = layout.get_branch_info()
     if branch_info and vim.api.nvim_buf_is_valid(branch_info.bufnr) then
         local display = " " .. (branch_name or "unknown")
-        vim.bo[branch_info.bufnr].modifiable = true
+        vim.api.nvim_set_option_value("modifiable", true, { buf = branch_info.bufnr })
         vim.api.nvim_buf_set_lines(branch_info.bufnr, 0, -1, false, { display })
-        vim.bo[branch_info.bufnr].modifiable = false
+        vim.api.nvim_set_option_value("modifiable", false, { buf = branch_info.bufnr })
     end
 end
 
@@ -73,7 +73,7 @@ function M.open()
 
     -- Hide tabline
     saved_showtabline = vim.o.showtabline
-    vim.o.showtabline = 0
+    vim.api.nvim_set_option_value("showtabline", 0, {})
 
     -- Create and mount layout
     local l = layout.create()
@@ -229,8 +229,8 @@ function M.show_welcome()
     end
 
     local bufnr = diff_split.bufnr
-    vim.bo[bufnr].readonly = false
-    vim.bo[bufnr].modifiable = true
+    vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
 
     local welcome = {
         "",
@@ -260,8 +260,8 @@ function M.show_welcome()
     table.insert(welcome, "")
 
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, welcome)
-    vim.bo[bufnr].modifiable = false
-    vim.bo[bufnr].readonly = true
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
     -- Apply title highlight
     vim.api.nvim_buf_add_highlight(bufnr, -1, "ReviewTitle", 1, 0, -1)
@@ -348,7 +348,7 @@ local function do_close(action)
 
     -- Restore tabline
     if saved_showtabline ~= nil then
-        vim.o.showtabline = saved_showtabline
+        vim.api.nvim_set_option_value("showtabline", saved_showtabline, {})
         saved_showtabline = nil
     end
 
