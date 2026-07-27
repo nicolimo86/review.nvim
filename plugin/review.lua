@@ -11,3 +11,6 @@ if vim.fn.has("nvim-0.10") ~= 1 then
 end
 
 require("review.commands").setup()
+
+-- Session autosave must exist without setup(); save() re-checks the config
+require("review.core.persistence").setup_autosave()
