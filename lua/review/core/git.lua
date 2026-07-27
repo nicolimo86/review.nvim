@@ -338,9 +338,11 @@ function M.get_diff(file, base, base_end, opts)
         return untracked_diff(git_root, file)
     end
 
-    -- Determine if file has only staged changes (no unstaged)
-    local is_staged_only = file_status == "staged_only"
-    if not file_status then
+    -- Determine if file has only staged changes (no unstaged).
+    -- Only valid against HEAD: git diff --cached compares the index to HEAD
+    -- and cannot honour another base.
+    local is_staged_only = base == "HEAD" and file_status == "staged_only"
+    if base == "HEAD" and not file_status then
         local unstaged_result = vim.system(
             { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only", "--", file },
             { text = true, cwd = git_root }
@@ -1733,8 +1735,8 @@ function M.get_diff_async(file, base, base_end, opts)
         return untracked_diff(git_root, file)
     end
 
-    local is_staged_only = file_status == "staged_only"
-    if not file_status then
+    local is_staged_only = base == "HEAD" and file_status == "staged_only"
+    if base == "HEAD" and not file_status then
         local unstaged_result = async.system(
             { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "--name-only", "--", file },
             { text = true, cwd = git_root }
