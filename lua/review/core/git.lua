@@ -291,8 +291,38 @@ local function untracked_diff(git_root, file)
     return { success = true, output = table.concat(diff_lines, "\n"), error = nil }
 end
 
+---Find the source path of a renamed or copied file
+---@param git_root string
+---@param file string New path
+---@param base string Base to compare against
+---@param staged boolean Whether to look in the index rather than the worktree
+---@return string|nil
+local function find_rename_source(git_root, file, base, staged)
+    local cmd = { "git", "-c", "core.quotepath=false", "--literal-pathspecs", "diff", "-M", "--name-status" }
+    if staged then
+        table.insert(cmd, "--cached")
+    else
+        table.insert(cmd, base)
+    end
+
+    local result = vim.system(cmd, { text = true, cwd = git_root }):wait()
+    if result.code ~= 0 then
+        return nil
+    end
+
+    for _, line in ipairs(vim.split(result.stdout or "", "\n", { plain = true })) do
+        local parsed = M.parse_name_status_line(line)
+        if parsed and parsed.path == file and parsed.rename_from then
+            return parsed.rename_from
+        end
+    end
+
+    return nil
+end
+
 ---@class GetDiffOpts
 ---@field file_status "untracked"|"staged_only"|"unstaged"|nil Pre-resolved file status to skip subprocess calls
+---@field rename_from string|nil Pre-resolved source path when the file is a rename
 
 ---Get diff for a specific file
 ---@param file string File path relative to git root
@@ -390,6 +420,19 @@ function M.get_diff(file, base, base_end, opts)
 
     if result.code ~= 0 then
         return { success = false, output = "", error = result.stderr }
+    end
+
+    -- Rename detection cannot see the source when the pathspec names only the
+    -- new path, so such a file comes back as a whole-file addition
+    if result.stdout:match("\nnew file mode") then
+        local rename_from = opts and opts.rename_from or find_rename_source(git_root, file, base, is_staged_only)
+        if rename_from then
+            table.insert(cmd, rename_from)
+            local retry = vim.system(cmd, { text = true, cwd = git_root }):wait()
+            if retry.code == 0 and retry.stdout ~= "" then
+                return { success = true, output = retry.stdout, error = nil }
+            end
+        end
     end
 
     return { success = true, output = result.stdout, error = nil }
@@ -1784,6 +1827,17 @@ function M.get_diff_async(file, base, base_end, opts)
 
     if result.code ~= 0 then
         return { success = false, output = "", error = result.stderr }
+    end
+
+    if result.stdout:match("\nnew file mode") then
+        local rename_from = opts and opts.rename_from or find_rename_source(git_root, file, base, is_staged_only)
+        if rename_from then
+            table.insert(cmd, rename_from)
+            local retry = async.system(cmd, { text = true, cwd = git_root })
+            if retry.code == 0 and retry.stdout ~= "" then
+                return { success = true, output = retry.stdout, error = nil }
+            end
+        end
     end
 
     return { success = true, output = result.stdout, error = nil }
