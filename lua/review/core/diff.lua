@@ -62,9 +62,11 @@ function M.parse(diff_text)
 
     for _, line in ipairs(lines) do
         -- Parse file headers
-        if line:match("^%-%-%- ") then
+        if line:match("^diff %-%-git ") then
+            current_hunk = nil
+        elseif current_hunk == nil and line:match("^%-%-%- ") then
             result.file_old = line:match("^%-%-%- a/(.+)$") or line:match("^%-%-%- (.+)$")
-        elseif line:match("^%+%+%+ ") then
+        elseif current_hunk == nil and line:match("^%+%+%+ ") then
             result.file_new = line:match("^%+%+%+ b/(.+)$") or line:match("^%+%+%+ (.+)$")
         elseif line:match("^@@ ") then
             -- Start new hunk

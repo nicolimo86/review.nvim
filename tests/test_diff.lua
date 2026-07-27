@@ -328,6 +328,70 @@ T["non-binary diff is not flagged"] = function()
     expect.equality(parsed.binary, false)
 end
 
+T["deleted line starting with -- is not mistaken for a file header"] = function()
+    local parsed = diff.parse(table.concat({
+        "--- a/f.lua",
+        "+++ b/f.lua",
+        "@@ -1,4 +1,3 @@",
+        " local a = 1",
+        "--- an old comment",
+        "-local b = 2",
+        "+local b = 3",
+        " local c = 4",
+    }, "\n"))
+
+    expect.equality(parsed.file_old, "f.lua")
+
+    local lines = parsed.hunks[1].lines
+    expect.equality(lines[2].type, "delete")
+    expect.equality(lines[2].content, "-- an old comment")
+    expect.equality(lines[2].old_line, 2)
+    expect.equality(lines[3].old_line, 3)
+    expect.equality(lines[4].type, "add")
+    expect.equality(lines[5].type, "context")
+    expect.equality(lines[5].old_line, 4)
+end
+
+T["added line starting with ++ is not mistaken for a file header"] = function()
+    local parsed = diff.parse(table.concat({
+        "--- a/f.c",
+        "+++ b/f.c",
+        "@@ -1,2 +1,3 @@",
+        " int a;",
+        "+++counter;",
+        " int c;",
+    }, "\n"))
+
+    expect.equality(parsed.file_new, "f.c")
+
+    local lines = parsed.hunks[1].lines
+    expect.equality(lines[2].type, "add")
+    expect.equality(lines[2].content, "++counter;")
+    expect.equality(lines[3].new_line, 3)
+end
+
+T["diff --git resets hunk state between files"] = function()
+    local parsed = diff.parse(table.concat({
+        "diff --git a/one.lua b/one.lua",
+        "--- a/one.lua",
+        "+++ b/one.lua",
+        "@@ -1 +1 @@",
+        "-a",
+        "+b",
+        "diff --git a/two.lua b/two.lua",
+        "--- a/two.lua",
+        "+++ b/two.lua",
+        "@@ -10 +10 @@",
+        "-c",
+        "+d",
+    }, "\n"))
+
+    expect.equality(parsed.file_new, "two.lua")
+    expect.equality(#parsed.hunks, 2)
+    expect.equality(parsed.hunks[2].old_start, 10)
+    expect.equality(#parsed.hunks[1].lines, 2)
+end
+
 T["crlf diff strips carriage returns"] = function()
     local parsed = diff.parse("--- a/f.txt\r\n+++ b/f.txt\r\n@@ -1 +1 @@\r\n-a\r\n+b\r\n")
     expect.equality(parsed.file_new, "f.txt")
