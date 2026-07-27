@@ -53,6 +53,12 @@ local SIDEBAR_PANELS = {
     },
 }
 
+local PANEL_MODULES = {
+    branch_list = "review.ui.branch_list",
+    commit_list = "review.ui.commit_list",
+    comment_list = "review.ui.comment_list",
+}
+
 local INTERACTIVE_SIDEBAR_PANELS = {}
 for _, panel in ipairs(SIDEBAR_PANELS) do
     if panel.is_interactive then
@@ -532,6 +538,11 @@ function M.show_file_tree()
             component.winid = winid
             if panel_def.name == "file_tree" then
                 require("review.ui.file_tree").set_winid(winid)
+            elseif PANEL_MODULES[panel_def.name] then
+                local panel_module = require(PANEL_MODULES[panel_def.name])
+                if panel_module.current then
+                    panel_module.current.winid = winid
+                end
             end
         end
     end
