@@ -85,4 +85,31 @@ T["author_initials"]["handles mixed ascii and multibyte"] = function()
     expect.equality(format.author_initials("Luka Žuvela"), "LŽ")
 end
 
+local build_fence = new_set()
+T["build_fence"] = build_fence
+
+build_fence["plain content gets a three-backtick fence"] = function()
+    expect.equality(format.build_fence({ "local a = 1" }), "```")
+end
+
+build_fence["accepts a bare string"] = function()
+    expect.equality(format.build_fence("local a = 1"), "```")
+end
+
+build_fence["outgrows a three-backtick run"] = function()
+    expect.equality(format.build_fence({ "text ``` more" }), "````")
+end
+
+build_fence["uses the longest run, not the first"] = function()
+    expect.equality(format.build_fence({ 'local s = "a ` b ``` c"' }), "````")
+end
+
+build_fence["uses the longest run across lines"] = function()
+    expect.equality(format.build_fence({ "a ` b", "c ````` d", "e `` f" }), "``````")
+end
+
+build_fence["empty input still fences"] = function()
+    expect.equality(format.build_fence({}), "```")
+end
+
 return T

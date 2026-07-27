@@ -66,4 +66,22 @@ function M.author_initials(author)
     return vim.fn.toupper(utf8_sub(words[1], 1) .. utf8_sub(words[2], 1))
 end
 
+---Build a code fence longer than any backtick run in the given lines
+---@param lines string[]|string
+---@return string
+function M.build_fence(lines)
+    if type(lines) == "string" then
+        lines = { lines }
+    end
+
+    local longest = 2
+    for _, line in ipairs(lines) do
+        for run in line:gmatch("`+") do
+            longest = math.max(longest, #run)
+        end
+    end
+
+    return string.rep("`", longest + 1)
+end
+
 return M

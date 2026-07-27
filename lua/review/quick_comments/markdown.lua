@@ -1,4 +1,5 @@
 local comment_types_module = require("review.comment_types")
+local format = require("review.core.format")
 local paths = require("review.core.paths")
 
 local comment_types = comment_types_module.TYPES
@@ -24,7 +25,7 @@ function M.build(comments)
         table.insert(lines, "")
         table.insert(lines, string.format("**Line %d** - %s %s", line_number, type_info.icon, type_info.label))
         if comment.context then
-            local fence = string.rep("`", math.max(3, #(comment.context:match("`+") or "") + 1))
+            local fence = format.build_fence(comment.context)
             table.insert(lines, fence)
             table.insert(lines, comment.context)
             table.insert(lines, fence)

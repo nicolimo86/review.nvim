@@ -1,3 +1,4 @@
+local format = require("review.core.format")
 local paths = require("review.core.paths")
 local state = require("review.state")
 
@@ -72,19 +73,6 @@ local function get_source_context(file, line, context_count)
     return #context > 0 and context or nil
 end
 
----Build a fence longer than any backtick run in the given lines
----@param context string[]
----@return string
-local function build_fence(context)
-    local longest = 2
-    for _, line in ipairs(context) do
-        for run in line:gmatch("`+") do
-            longest = math.max(longest, #run)
-        end
-    end
-    return string.rep("`", longest + 1)
-end
-
 ---Generate markdown export of all comments
 ---@return string
 function M.generate()
@@ -132,7 +120,7 @@ function M.generate()
 
             local context = get_diff_context(render_lines_data, comment.line, context_count)
             if context then
-                local fence = build_fence(context)
+                local fence = format.build_fence(context)
                 table.insert(lines, fence .. language)
                 for _, context_line in ipairs(context) do
                     table.insert(lines, context_line)
@@ -142,7 +130,7 @@ function M.generate()
             else
                 local source_context = get_source_context(file, display_line, context_count)
                 if source_context then
-                    local fence = build_fence(source_context)
+                    local fence = format.build_fence(source_context)
                     table.insert(lines, "*(no changes)*")
                     table.insert(lines, fence .. language)
                     for _, context_line in ipairs(source_context) do
