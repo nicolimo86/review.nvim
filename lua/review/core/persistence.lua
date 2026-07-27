@@ -64,8 +64,9 @@ function M.load()
         end
     end
 
-    if data.base then
+    if data.base and not state.is_history_mode() then
         state.state.base = data.base
+        state.state.base_end = data.base_end
     end
 
     if data.diff_mode then
@@ -126,6 +127,7 @@ function M.save()
         version = 1,
         files = files_data,
         base = state.state.base,
+        base_end = state.state.base_end,
         diff_mode = state.state.diff_mode,
         comment_id_counter = state.state.comment_id_counter,
     }
