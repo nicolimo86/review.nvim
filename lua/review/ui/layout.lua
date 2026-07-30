@@ -30,6 +30,12 @@ M.review_tab = nil
 M.base_winid = nil
 
 ---@type number|nil
+M.pad_winid = nil
+
+---@type number|nil
+M.pad_bufnr = nil
+
+---@type number|nil
 local resize_autocmd_id = nil
 
 ---@class SidebarPanelDef
@@ -110,7 +116,6 @@ local function update_border_highlights()
         if component and vim.api.nvim_win_is_valid(component.winid) then
             if component.winid == current_win then
                 vim.api.nvim_set_option_value("winhighlight", ACTIVE_DIFF_WINHIGHLIGHT, { win = component.winid })
-                vim.api.nvim_set_option_value("cursorline", true, { win = component.winid })
             else
                 vim.api.nvim_set_option_value("winhighlight", INACTIVE_WINHIGHLIGHT, { win = component.winid })
                 vim.api.nvim_set_option_value("cursorline", false, { win = component.winid })
@@ -229,7 +234,11 @@ local function apply_diff_win_options(winid)
     vim.api.nvim_set_option_value("wrap", false, { win = winid })
     vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
     vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
-    vim.api.nvim_set_option_value("winhighlight", INACTIVE_WINHIGHLIGHT, { win = winid })
+    vim.api.nvim_set_option_value(
+        "winhighlight",
+        INACTIVE_WINHIGHLIGHT .. ",WinSeparator:Normal",
+        { win = winid }
+    )
 end
 
 ---Create a scratch buffer with the given filetype
@@ -277,13 +286,40 @@ function M.create()
     vim.cmd("tabnew")
     M.review_tab = vim.api.nvim_get_current_tabpage()
 
-    local base_buf = vim.api.nvim_get_current_buf()
-    vim.api.nvim_set_option_value("buftype", "nofile", { buf = base_buf })
-    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = base_buf })
-    vim.api.nvim_set_option_value("buflisted", false, { buf = base_buf })
-    vim.api.nvim_set_option_value("swapfile", false, { buf = base_buf })
+    -- The base window becomes the diff pane (a normal window, no compositor overhead).
+    -- We create a left padding split that the sidebar floats sit on top of.
+    local diff_buf = create_panel_buffer("review-diff")
     local base_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(base_win, diff_buf)
+
+    local opts = config.get()
+    local sidebar_content_width = math.floor(vim.o.columns * opts.ui.file_tree_width / 100)
+    local sidebar_outer_width = sidebar_content_width + 2
+
+    -- Create a left padding split for the sidebar to float over
+    vim.cmd("topleft " .. sidebar_outer_width .. "vsplit")
+    local pad_win = vim.api.nvim_get_current_win()
+    local pad_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(pad_win, pad_buf)
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = pad_buf })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = pad_buf })
+    vim.api.nvim_set_option_value("buflisted", false, { buf = pad_buf })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = pad_buf })
+    vim.api.nvim_set_option_value("number", false, { win = pad_win })
+    vim.api.nvim_set_option_value("relativenumber", false, { win = pad_win })
+    vim.api.nvim_set_option_value("signcolumn", "no", { win = pad_win })
+    vim.api.nvim_set_option_value("cursorline", false, { win = pad_win })
+    vim.api.nvim_set_option_value("winfixwidth", true, { win = pad_win })
+    vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,EndOfBuffer:Normal,WinSeparator:Normal", { win = pad_win })
+    vim.api.nvim_set_option_value("fillchars", "eob: ,vert: ", { win = pad_win })
+
+    -- Focus back on the diff (right) window
+    vim.api.nvim_set_current_win(base_win)
     M.base_winid = base_win
+    M.pad_winid = pad_win
+    M.pad_bufnr = pad_buf
+
+    apply_diff_win_options(base_win)
 
     local positions = calculate_positions(true)
 
@@ -299,10 +335,7 @@ function M.create()
         M.current[panel_def.name] = { bufnr = bufnr, winid = winid }
     end
 
-    local diff_buf = create_panel_buffer("review-diff")
-    local diff_win = open_float(diff_buf, positions.diff_view, nil)
-    apply_diff_win_options(diff_win)
-    M.current.diff_view = { bufnr = diff_buf, winid = diff_win }
+    M.current.diff_view = { bufnr = diff_buf, winid = base_win }
 
     resize_autocmd_id = vim.api.nvim_create_autocmd("VimResized", {
         callback = function()
@@ -337,42 +370,24 @@ function M.create()
     return M.current
 end
 
----Reposition diff windows (unified or split) to fill the given area
+---Reposition diff windows (unified or split) to fill the given area.
+---The diff pane is a normal window; resizing is done via the padding split width.
 ---@param diff_pos table {row, col, width, height}
 local function reposition_diff_windows(diff_pos)
+    -- Resize the padding window to match the sidebar width
+    if M.pad_winid and vim.api.nvim_win_is_valid(M.pad_winid) then
+        vim.api.nvim_win_set_width(M.pad_winid, math.max(diff_pos.col, 1))
+    end
+
     if M.is_split_mode() then
-        local half_width = math.floor(diff_pos.width / 2)
         local old_component = M.current.diff_view_old
         local new_component = M.current.diff_view_new
+        -- In split mode, old and new are real vsplits; just balance widths
         if old_component and vim.api.nvim_win_is_valid(old_component.winid) then
-            vim.api.nvim_win_set_config(old_component.winid, {
-                relative = "editor",
-                row = diff_pos.row,
-                col = diff_pos.col,
-                width = math.max(half_width, 1),
-                height = math.max(diff_pos.height, 1),
-            })
+            local half_width = math.floor(diff_pos.width / 2)
+            vim.api.nvim_win_set_width(old_component.winid, math.max(half_width, 1))
         end
-        if new_component and vim.api.nvim_win_is_valid(new_component.winid) then
-            vim.api.nvim_win_set_config(new_component.winid, {
-                relative = "editor",
-                row = diff_pos.row,
-                col = diff_pos.col + half_width + 2,
-                width = math.max(diff_pos.width - half_width - 2, 1),
-                height = math.max(diff_pos.height, 1),
-            })
-        end
-    else
-        local diff_component = M.current.diff_view
-        if diff_component and vim.api.nvim_win_is_valid(diff_component.winid) then
-            vim.api.nvim_win_set_config(diff_component.winid, {
-                relative = "editor",
-                row = diff_pos.row,
-                col = diff_pos.col,
-                width = math.max(diff_pos.width, 1),
-                height = math.max(diff_pos.height, 1),
-            })
-        end
+        -- The new component gets the remainder automatically
     end
 end
 
@@ -411,7 +426,7 @@ end
 ---@param winid number
 ---@return boolean
 function M.is_passive_window(winid)
-    if winid == M.base_winid then
+    if winid == M.pad_winid then
         return true
     end
     local branch_info = M.current and M.current.branch_info
@@ -457,6 +472,9 @@ end
 ---@return boolean
 function M.is_layout_window(winid)
     if winid == M.base_winid then
+        return true
+    end
+    if winid == M.pad_winid then
         return true
     end
     if not M.current then
@@ -509,8 +527,10 @@ function M.hide_file_tree()
         end
     end
 
-    local positions = calculate_positions(false)
-    reposition_diff_windows(positions.diff_view)
+    -- Hide the padding window (set width to 1, minimum)
+    if M.pad_winid and vim.api.nvim_win_is_valid(M.pad_winid) then
+        vim.api.nvim_win_set_width(M.pad_winid, 1)
+    end
 end
 
 ---Show the file tree panel (re-open the windows with existing buffers)
@@ -525,6 +545,14 @@ function M.show_file_tree()
     end
 
     local positions = calculate_positions(true)
+
+    -- Restore padding window width for sidebar
+    if M.pad_winid and vim.api.nvim_win_is_valid(M.pad_winid) then
+        local opts = config.get()
+        local sidebar_content_width = math.floor(vim.o.columns * opts.ui.file_tree_width / 100)
+        local sidebar_outer_width = sidebar_content_width + 2
+        vim.api.nvim_win_set_width(M.pad_winid, sidebar_outer_width)
+    end
 
     for _, panel_def in ipairs(SIDEBAR_PANELS) do
         local component = M.current[panel_def.name]
@@ -580,19 +608,13 @@ function M.enter_split_mode()
         end)
     end
 
+    -- The base window (diff_view) becomes the "new" pane.
+    -- Create a vertical split to the left of it for the "old" pane.
     local diff_win = M.current.diff_view.winid
-
     local prev_win = vim.api.nvim_get_current_win()
 
-    if vim.api.nvim_win_is_valid(diff_win) then
-        vim.api.nvim_win_close(diff_win, true)
-    end
-
-    local sidebar_visible = M.is_file_tree_visible()
-    local positions = calculate_positions(sidebar_visible)
-    local diff_pos = positions.diff_view
-
-    local half_width = math.floor(diff_pos.width / 2)
+    -- Focus the diff window and split left for the old pane
+    vim.api.nvim_set_current_win(diff_win)
 
     local old_buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_set_option_value("buftype", "nofile", { buf = old_buf })
@@ -600,23 +622,21 @@ function M.enter_split_mode()
     vim.api.nvim_set_option_value("modifiable", true, { buf = old_buf })
     vim.api.nvim_set_option_value("readonly", false, { buf = old_buf })
 
-    local old_pos = {
-        row = diff_pos.row,
-        col = diff_pos.col,
-        width = half_width,
-        height = diff_pos.height,
-    }
-    local old_win = open_float(old_buf, old_pos, nil)
+    vim.cmd("leftabove vsplit")
+    local old_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(old_win, old_buf)
     apply_diff_win_options(old_win)
 
-    local new_pos = {
-        row = diff_pos.row,
-        col = diff_pos.col + half_width + 2,
-        width = diff_pos.width - half_width - 2,
-        height = diff_pos.height,
-    }
-    local new_win = open_float(M.current.diff_view.bufnr, new_pos, nil)
+    -- The original diff_win is now the "new" pane (right side)
+    local new_win = diff_win
     apply_diff_win_options(new_win)
+
+    -- Balance the widths
+    local sidebar_visible = M.is_file_tree_visible()
+    local positions = calculate_positions(sidebar_visible)
+    local diff_pos = positions.diff_view
+    local half_width = math.floor(diff_pos.width / 2)
+    vim.api.nvim_win_set_width(old_win, math.max(half_width, 1))
 
     vim.api.nvim_set_option_value("scrollbind", true, { win = old_win })
     vim.api.nvim_set_option_value("cursorbind", true, { win = old_win })
@@ -651,12 +671,13 @@ function M.exit_split_mode()
     local was_focused = (old_component and prev_win == old_component.winid)
         or (new_component and prev_win == new_component.winid)
 
+    -- Unbind scrolling on the new (base) window
     if new_component and vim.api.nvim_win_is_valid(new_component.winid) then
         vim.api.nvim_set_option_value("scrollbind", false, { win = new_component.winid })
         vim.api.nvim_set_option_value("cursorbind", false, { win = new_component.winid })
-        vim.api.nvim_win_close(new_component.winid, true)
     end
 
+    -- Close the old split window
     if old_component then
         if vim.api.nvim_win_is_valid(old_component.winid) then
             vim.api.nvim_win_close(old_component.winid, true)
@@ -668,13 +689,8 @@ function M.exit_split_mode()
         end)
     end
 
-    local sidebar_visible = M.is_file_tree_visible()
-    local positions = calculate_positions(sidebar_visible)
-    local diff_pos = positions.diff_view
-
-    local diff_win = open_float(M.current.diff_view.bufnr, diff_pos, nil)
-    apply_diff_win_options(diff_win)
-
+    -- The base window (M.base_winid) is still the diff view
+    local diff_win = M.base_winid
     M.current.diff_view.winid = diff_win
     M.current.diff_view_old = nil
     M.current.diff_view_new = nil
@@ -734,6 +750,7 @@ function M.unmount()
         local prev_tab = M.prev_tab
         local review_tab = M.review_tab
 
+        -- Close sidebar float windows
         local float_wins = {}
         local panel_buffers = {}
         for _, panel_def in ipairs(SIDEBAR_PANELS) do
@@ -745,12 +762,16 @@ function M.unmount()
                 table.insert(panel_buffers, component.bufnr)
             end
         end
+
+        -- Collect the diff buffer for cleanup (the window is the base_win, closed with the tab)
         local diff_component = M.current.diff_view
         if diff_component then
-            if vim.api.nvim_win_is_valid(diff_component.winid) then
-                table.insert(float_wins, diff_component.winid)
-            end
             table.insert(panel_buffers, diff_component.bufnr)
+        end
+
+        -- Collect the pad buffer for cleanup
+        if M.pad_bufnr then
+            table.insert(panel_buffers, M.pad_bufnr)
         end
 
         M.current = nil
@@ -770,6 +791,8 @@ function M.unmount()
         end
 
         M.base_winid = nil
+        M.pad_winid = nil
+        M.pad_bufnr = nil
 
         vim.schedule(function()
             for _, bufnr in ipairs(panel_buffers) do

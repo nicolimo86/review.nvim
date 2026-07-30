@@ -3,6 +3,7 @@ local comment_types_module = require("review.comment_types")
 local diff_parser = require("review.core.diff")
 local git = require("review.core.git")
 local layout = require("review.ui.layout")
+local log = require("review.core.log")
 local state = require("review.state")
 local ui_util = require("review.ui.util")
 
@@ -47,6 +48,22 @@ local ns_comments = vim.api.nvim_create_namespace("review_comments")
 ---Tracks which 0-indexed line currently has focus for comment border highlighting
 ---@type number|nil
 local focused_comment_line = nil
+
+---Cached set of commented display lines (0-indexed line → true).
+---Rebuilt by render_comments; avoids allocating a new table on every CursorMoved.
+---@type table<number, boolean>
+local commented_lines_cache = {}
+
+---Debounce timer for CursorMoved focus highlight updates
+---@type uv.uv_timer_t|nil
+local focus_debounce_timer = nil
+
+---Debounce interval in milliseconds for CursorMoved
+local FOCUS_DEBOUNCE_MS = 16
+
+---Last CursorMoved timestamp for frame-time measurement
+---@type number|nil
+local last_cursor_moved_time = nil
 
 ---Augroup for comment focus CursorMoved autocmds (cleared on each file switch)
 local comment_focus_augroup = vim.api.nvim_create_augroup("review_comment_focus", { clear = false })
@@ -310,6 +327,7 @@ end
 local function apply_treesitter_highlights_async(bufnr, render_lines, display_lines, file, expected_generation)
     vim.api.nvim_buf_clear_namespace(bufnr, ns_syntax, 0, -1)
 
+    local ts_t0 = vim.uv.hrtime()
     local lang, query = detect_language(file)
     if not lang or not query then
         return
@@ -364,6 +382,8 @@ local function apply_treesitter_highlights_async(bufnr, render_lines, display_li
     if new_content then
         apply_highlights_from_source(bufnr, lang, query, new_content, new_map, display_lines, 0)
     end
+    local ts_elapsed_ms = (vim.uv.hrtime() - ts_t0) / 1e6
+    log.debug("diff_view: treesitter highlights took ", string.format("%.2fms", ts_elapsed_ms), " file=", file)
 end
 
 ---Split string into tokens (words, punctuation, whitespace)
@@ -921,100 +941,177 @@ local function display_row_for(comment, render_lines)
     return comment.line
 end
 
-local function render_comments(bufnr, file)
-    vim.api.nvim_buf_clear_namespace(bufnr, ns_comments, 0, -1)
-
-    local comments = state.get_comments_for_file(file)
-
-    local render_lines = M.current and M.current.bufnr == bufnr and M.current.render_lines or nil
-    if render_lines then
-        for _, comment in ipairs(comments) do
-            comment.line = display_row_for(comment, render_lines)
-        end
+---Build the virt_lines table for a comment box
+---@param comment table
+---@param max_box_width number|nil
+---@param is_focused boolean
+---@return table[] virt_lines
+local function build_comment_virt_lines(comment, max_box_width, is_focused)
+    local type_info = comment_types[comment.type]
+    if not type_info then
+        return {}
     end
 
-    -- Calculate available width for comment box
-    local max_box_width = nil
+    local header = string.format(" %s %s ", type_info.icon, type_info.label)
+    local header_width = vim.api.nvim_strwidth(header)
+
+    local max_text_width = max_box_width and (max_box_width - 2) or nil
+    local text_lines = wrap_text(comment.text, max_text_width or 9999)
+
+    local max_line_width = 0
+    for _, line in ipairs(text_lines) do
+        max_line_width = math.max(max_line_width, vim.api.nvim_strwidth(line))
+    end
+    local box_width = math.max(header_width, max_line_width + 2)
+    if max_box_width then
+        box_width = math.min(box_width, max_box_width)
+    end
+
+    local border_hl = is_focused and type_info.border_focus_hl or "ReviewCommentBorder"
+    local header_padding = string.rep(" ", math.max(0, box_width - header_width))
+
+    local virt_lines = {
+        {
+            { "  ╭", border_hl },
+            { string.rep("─", box_width), border_hl },
+            { "╮", border_hl },
+        },
+        {
+            { "  │", border_hl },
+            { header .. header_padding, type_info.highlight },
+            { "│", border_hl },
+        },
+    }
+
+    for _, line in ipairs(text_lines) do
+        local text_content = " " .. line .. " "
+        local text_width = vim.api.nvim_strwidth(text_content)
+        local text_padding = string.rep(" ", math.max(0, box_width - text_width))
+        table.insert(virt_lines, {
+            { "  │", border_hl },
+            { text_content .. text_padding, "ReviewCommentText" },
+            { "│", border_hl },
+        })
+    end
+
+    table.insert(virt_lines, {
+        { "  ╰", border_hl },
+        { string.rep("─", box_width), border_hl },
+        { "╯", border_hl },
+    })
+
+    return virt_lines
+end
+
+---Get available max box width for comments in the current diff window
+---@return number|nil
+local function get_comment_max_box_width()
     if M.current and M.current.winid and vim.api.nvim_win_is_valid(M.current.winid) then
         local win_width = vim.api.nvim_win_get_width(M.current.winid)
         local win_info = vim.fn.getwininfo(M.current.winid)
         local text_off = win_info[1] and win_info[1].textoff or 0
-        -- Available width minus border chars ("  ╭"/"  │" = 3, "╮"/"│" = 1)
-        max_box_width = win_width - text_off - 4
+        return win_width - text_off - 4
+    end
+    return nil
+end
+
+local function render_comments(bufnr, file)
+    local t0 = vim.uv.hrtime()
+    vim.api.nvim_buf_clear_namespace(bufnr, ns_comments, 0, -1)
+
+    local comments = state.get_comments_for_file(file)
+
+    local cur_render_lines = M.current and M.current.bufnr == bufnr and M.current.render_lines or nil
+    if cur_render_lines then
+        for _, comment in ipairs(comments) do
+            comment.line = display_row_for(comment, cur_render_lines)
+        end
+    end
+
+    local max_box_width = get_comment_max_box_width()
+
+    -- Rebuild the commented lines cache
+    commented_lines_cache = {}
+    for _, comment in ipairs(comments) do
+        commented_lines_cache[comment.line - 1] = true
     end
 
     for _, comment in ipairs(comments) do
         local type_info = comment_types[comment.type]
         if type_info then
-            local header = string.format(" %s %s ", type_info.icon, type_info.label)
-            -- Use display width (not byte length) for proper alignment with multi-byte icons
-            local header_width = vim.api.nvim_strwidth(header)
-
-            -- Wrap text to fit within the box
-            local max_text_width = max_box_width and (max_box_width - 2) or nil -- -2 for " " padding each side
-            local text_lines = wrap_text(comment.text, max_text_width or 9999)
-
-            -- Calculate box width from widest wrapped line
-            local max_line_width = 0
-            for _, line in ipairs(text_lines) do
-                max_line_width = math.max(max_line_width, vim.api.nvim_strwidth(line))
-            end
-            local box_width = math.max(header_width, max_line_width + 2) -- +2 for " " padding
-            if max_box_width then
-                box_width = math.min(box_width, max_box_width)
-            end
-
             local is_focused = comment.line - 1 == focused_comment_line
-            local border_hl = is_focused and type_info.border_focus_hl or "ReviewCommentBorder"
-
-            local header_padding = string.rep(" ", math.max(0, box_width - header_width))
-
-            local virt_lines = {
-                {
-                    { "  ╭", border_hl },
-                    { string.rep("─", box_width), border_hl },
-                    { "╮", border_hl },
-                },
-                {
-                    { "  │", border_hl },
-                    { header .. header_padding, type_info.highlight },
-                    { "│", border_hl },
-                },
-            }
-
-            -- Add wrapped text lines
-            for _, line in ipairs(text_lines) do
-                local text_content = " " .. line .. " "
-                local text_width = vim.api.nvim_strwidth(text_content)
-                local text_padding = string.rep(" ", math.max(0, box_width - text_width))
-                table.insert(virt_lines, {
-                    { "  │", border_hl },
-                    { text_content .. text_padding, "ReviewCommentText" },
-                    { "│", border_hl },
-                })
-            end
-
-            -- Bottom border
-            table.insert(virt_lines, {
-                { "  ╰", border_hl },
-                { string.rep("─", box_width), border_hl },
-                { "╯", border_hl },
-            })
+            local virt_lines = build_comment_virt_lines(comment, max_box_width, is_focused)
 
             pcall(function()
-                -- Show comment as boxed virtual lines below
-                -- Each segment has its own highlight
                 vim.api.nvim_buf_set_extmark(bufnr, ns_comments, comment.line - 1, 0, {
                     virt_lines = virt_lines,
                     virt_lines_above = false,
                 })
 
-                -- Add sign in gutter
                 vim.api.nvim_buf_set_extmark(bufnr, ns_comments, comment.line - 1, 0, {
                     sign_text = type_info.icon,
                     sign_hl_group = type_info.highlight,
                 })
             end)
+        end
+    end
+    local elapsed_ms = (vim.uv.hrtime() - t0) / 1e6
+    log.debug("diff_view: render_comments took ", string.format("%.2fms", elapsed_ms), " comments=", #comments)
+end
+---Falls back to render_comments if extmarks cannot be patched.
+---@param bufnr number
+---@param file string
+---@param old_focus number|nil previous focused line (0-indexed)
+---@param new_focus number|nil new focused line (0-indexed)
+local function update_comment_focus(bufnr, file, old_focus, new_focus)
+    local comments = state.get_comments_for_file(file)
+    if #comments == 0 then
+        return
+    end
+
+    local max_box_width = get_comment_max_box_width()
+
+    -- Find the comments that need updating
+    local lines_to_update = {}
+    if old_focus then
+        lines_to_update[old_focus] = true
+    end
+    if new_focus then
+        lines_to_update[new_focus] = true
+    end
+
+    for _, comment in ipairs(comments) do
+        local zero_line = comment.line - 1
+        if lines_to_update[zero_line] then
+            local type_info = comment_types[comment.type]
+            if type_info then
+                local is_focused = zero_line == new_focus
+                local virt_lines = build_comment_virt_lines(comment, max_box_width, is_focused)
+
+                -- Delete existing extmarks on this line and re-set them
+                local existing = vim.api.nvim_buf_get_extmarks(
+                    bufnr,
+                    ns_comments,
+                    { zero_line, 0 },
+                    { zero_line, 0 },
+                    {}
+                )
+                for _, mark in ipairs(existing) do
+                    vim.api.nvim_buf_del_extmark(bufnr, ns_comments, mark[1])
+                end
+
+                pcall(function()
+                    vim.api.nvim_buf_set_extmark(bufnr, ns_comments, zero_line, 0, {
+                        virt_lines = virt_lines,
+                        virt_lines_above = false,
+                    })
+
+                    vim.api.nvim_buf_set_extmark(bufnr, ns_comments, zero_line, 0, {
+                        sign_text = type_info.icon,
+                        sign_hl_group = type_info.highlight,
+                    })
+                end)
+            end
         end
     end
 end
@@ -1836,41 +1933,86 @@ local function apply_diff_view_win_options(winid, _bufnr)
     vim.api.nvim_set_option_value("linebreak", wrap, { win = winid })
 end
 
----Build a set of 0-indexed lines that have comments for a file
----@param file string
----@return table<number, boolean>
-local function get_commented_lines(file)
-    local commented = {}
-    local comments = state.get_comments_for_file(file)
-    for _, comment in ipairs(comments) do
-        commented[comment.line - 1] = true
-    end
-    return commented
-end
-
----Set up CursorMoved autocommand to highlight focused comment borders
+---Set up CursorMoved autocommand to highlight focused comment borders.
+---Uses commented_lines_cache (rebuilt by render_comments) and a debounce timer
+---so rapid cursor movement does not trigger per-line work.
 ---@param bufnrs number[] buffers to attach to
 ---@param comment_bufnr number buffer where comments are rendered
 ---@param file string
 local function setup_comment_focus_autocmd(bufnrs, comment_bufnr, file)
     vim.api.nvim_clear_autocmds({ group = comment_focus_augroup })
+
+    -- Stop any pending debounce from a previous file
+    if focus_debounce_timer then
+        focus_debounce_timer:stop()
+        focus_debounce_timer:close()
+        focus_debounce_timer = nil
+    end
+    focus_debounce_timer = vim.uv.new_timer()
+
     for _, target_bufnr in ipairs(bufnrs) do
         vim.api.nvim_create_autocmd("CursorMoved", {
             group = comment_focus_augroup,
             buffer = target_bufnr,
             callback = function()
+                local t_entry = vim.uv.hrtime()
+                local frame_ms = nil
+                if last_cursor_moved_time then
+                    frame_ms = (t_entry - last_cursor_moved_time) / 1e6
+                end
+                last_cursor_moved_time = t_entry
+
                 if not vim.api.nvim_buf_is_valid(comment_bufnr) then
+                    if focus_debounce_timer then
+                        focus_debounce_timer:stop()
+                        focus_debounce_timer:close()
+                        focus_debounce_timer = nil
+                    end
                     return true
                 end
 
-                local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
-                local zero_indexed = cursor_line - 1
-                local commented = get_commented_lines(file)
-                local new_focus = commented[zero_indexed] and zero_indexed or nil
+                -- Debounce: reset timer on each cursor move, fire after FOCUS_DEBOUNCE_MS idle
+                if focus_debounce_timer then
+                    focus_debounce_timer:stop()
+                    focus_debounce_timer:start(FOCUS_DEBOUNCE_MS, 0, function()
+                        vim.schedule(function()
+                            if not vim.api.nvim_buf_is_valid(comment_bufnr) then
+                                return
+                            end
 
-                if new_focus ~= focused_comment_line then
-                    focused_comment_line = new_focus
-                    render_comments(comment_bufnr, file)
+                            local ok, cursor = pcall(vim.api.nvim_win_get_cursor, 0)
+                            if not ok then
+                                return
+                            end
+                            local zero_indexed = cursor[1] - 1
+                            local new_focus = commented_lines_cache[zero_indexed] and zero_indexed or nil
+
+                            if new_focus ~= focused_comment_line then
+                                local t0 = vim.uv.hrtime()
+                                local old_focus = focused_comment_line
+                                focused_comment_line = new_focus
+                                update_comment_focus(comment_bufnr, file, old_focus, new_focus)
+                                local elapsed_ms = (vim.uv.hrtime() - t0) / 1e6
+                                log.debug(
+                                    "diff_view: focus update took ",
+                                    string.format("%.2fms", elapsed_ms),
+                                    " old=",
+                                    tostring(old_focus),
+                                    " new=",
+                                    tostring(new_focus)
+                                )
+                            end
+                        end)
+                    end)
+                end
+                local elapsed_us = (vim.uv.hrtime() - t_entry) / 1e3
+                if frame_ms then
+                    log.debug(
+                        "diff_view: frame=",
+                        string.format("%.1fms", frame_ms),
+                        " callback=",
+                        string.format("%.0fµs", elapsed_us)
+                    )
                 end
             end,
         })
