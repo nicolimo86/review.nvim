@@ -17,7 +17,7 @@ jobs:
       matrix:
         neovim: [stable, nightly]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: rhysd/action-setup-vim@v1
         with:
@@ -31,7 +31,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: lunarmodules/luacheck@v1
         with:
@@ -41,9 +41,9 @@ jobs:
     name: format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: JohnnyMorganz/stylua-action@v4
+      - uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: 2.5.2
