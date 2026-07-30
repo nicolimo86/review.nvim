@@ -230,6 +230,8 @@ or in the diff pane, for a help overlay listing that panel's mappings.
     J / K         Scroll the diff pane down / up.
     <Tab> / l     Focus the Branches panel.
     <C-l>         Focus the diff pane.
+    <C-j>         Focus the Branches panel.
+    <C-k>         Not bound (passthrough to global keymap).
     <Esc>         Reset the diff base back to HEAD. Does nothing unless a
                   branch or commit is currently selected.
     q             Close the review.
@@ -302,6 +304,8 @@ submits immediately.
     <Tab> / l     Focus the Commits panel.
     h             Focus the Files panel.
     <C-l>         Focus the diff pane.
+    <C-j>         Focus the Commits panel.
+    <C-k>         Focus the Files panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
     ?             Show the help overlay.
@@ -319,6 +323,8 @@ submits immediately.
     <Tab> / l     Focus the Comments panel.
     h             Focus the Branches panel.
     <C-l>         Focus the diff pane.
+    <C-j>         Focus the Comments panel.
+    <C-k>         Focus the Branches panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
     ?             Show the help overlay.
@@ -339,6 +345,8 @@ file diffs longer than 1000 lines are elided in the preview.
     <Tab>         Focus the Files panel.
     h             Focus the Commits panel.
     <C-l>         Focus the diff pane.
+    <C-j>         Not bound (passthrough to global keymap).
+    <C-k>         Focus the Commits panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
     ?             Show the help overlay.
@@ -379,6 +387,9 @@ need the keys you want to change. The complete defaults: >lua
         ui = {
             file_tree_width = 33,
             diff_view_mode = "unified",
+        },
+        navigation = {
+            passthrough = true,
         },
         tmux = {
             target = "!",
@@ -442,6 +453,13 @@ ui.file_tree_width ~
 ui.diff_view_mode ~
     "unified" or "split" (side-by-side) when the UI opens. `S` toggles it at
     runtime.
+
+navigation.passthrough ~
+    When true (default), boundary <C-h>, <C-j>, <C-k> and <C-l> keys at the
+    edges of the review UI are not captured. This lets your global keymaps
+    handle them, enabling seamless navigation with plugins like
+    vim-tmux-navigator or smart-splits. When false, those keys are swallowed
+    at the UI edges so focus stays inside the review.
 
 tmux.target ~
     Where the export is pasted. The default "!" is tmux's last active pane,

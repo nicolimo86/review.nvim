@@ -177,6 +177,8 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `J` / `K` | Scroll the **diff pane** down / up |
 | `<Tab>` / `l` | Focus the Branches panel |
 | `<C-l>` | Focus the diff pane |
+| `<C-j>` | Focus the Branches panel |
+| `<C-k>` | *(passthrough to global keymap)* |
 | `<Esc>` | Reset the diff base back to `HEAD` (no-op unless a branch or commit is selected) |
 | `q` | Close the review |
 | `Q` | Copy & send to tmux, close |
@@ -233,6 +235,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<Tab>` / `l` | Focus the Commits panel |
 | `h` | Focus the Files panel |
 | `<C-l>` | Focus the diff pane |
+| `<C-j>` | Focus the Commits panel |
+| `<C-k>` | Focus the Files panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
 | `Q` | Copy & send to tmux, close |
@@ -251,6 +255,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<Tab>` / `l` | Focus the Comments panel |
 | `h` | Focus the Branches panel |
 | `<C-l>` | Focus the diff pane |
+| `<C-j>` | Focus the Comments panel |
+| `<C-k>` | Focus the Branches panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
 | `Q` | Copy & send to tmux, close |
@@ -271,6 +277,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<Tab>` | Focus the Files panel |
 | `h` | Focus the Commits panel |
 | `<C-l>` | Focus the diff pane |
+| `<C-j>` | *(passthrough to global keymap)* |
+| `<C-k>` | Focus the Commits panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
 | `Q` | Copy & send to tmux, close |
@@ -306,6 +314,9 @@ require("review").setup({
     ui = {
         file_tree_width = 33,
         diff_view_mode = "unified",
+    },
+    navigation = {
+        passthrough = true,
     },
     tmux = {
         target = "!",
@@ -355,6 +366,7 @@ The `nil` entries are unset by default. No global keymaps are created unless you
 - `diff.base`: git revision the diff compares against. `"HEAD"` means "everything in the worktree".
 - `ui.file_tree_width`: sidebar width as a **percentage** of total columns, not a column count.
 - `ui.diff_view_mode`: `"unified"` or `"split"` (side-by-side) on open. `S` toggles at runtime.
+- `navigation.passthrough`: when `true` (default), boundary `<C-h>`/`<C-j>`/`<C-k>`/`<C-l>` keys are not captured by the review UI, letting your global keymaps handle them. This enables seamless navigation with plugins like vim-tmux-navigator or smart-splits. When `false`, those keys are swallowed at the UI edges to keep focus inside the review.
 - `tmux.target`: tmux target that `:Review send` pastes into. The default `"!"` is tmux's last active pane, which is normally the pane you came from, usually the one running your agent. Any target `tmux paste-buffer -t` accepts works instead, e.g. a named window `"CLAUDE"`, `"CLAUDE.0"` or a fully qualified `"session:window.pane"`.
 - `tmux.auto_enter`: send `Enter` after pasting. Off by default so you can read the prompt before submitting it.
 - `quick_comments.keymaps.add` / `.toggle_panel`: global keys for `:Review qc` and `:Review qp`.

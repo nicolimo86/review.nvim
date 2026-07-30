@@ -1763,6 +1763,8 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         end
     end
 
+    local passthrough = require("review.config").get().navigation.passthrough
+
     if old_bufnr then
         vim.keymap.set("n", "<C-h>", focus_file_tree, { buffer = old_bufnr, nowait = true })
         vim.keymap.set("n", "<C-l>", function()
@@ -1778,15 +1780,21 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
                 vim.api.nvim_set_current_win(old_component.winid)
             end
         end, { buffer = bufnr, nowait = true })
-        vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
+        if not passthrough then
+            vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
+        end
     else
         vim.keymap.set("n", "<C-h>", focus_file_tree, { buffer = bufnr, nowait = true })
-        vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
+        if not passthrough then
+            vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
+        end
     end
 
-    for _, target_bufnr in ipairs(all_bufnrs) do
-        vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = target_bufnr, nowait = true })
-        vim.keymap.set("n", "<C-k>", "<Nop>", { buffer = target_bufnr, nowait = true })
+    if not passthrough then
+        for _, target_bufnr in ipairs(all_bufnrs) do
+            vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = target_bufnr, nowait = true })
+            vim.keymap.set("n", "<C-k>", "<Nop>", { buffer = target_bufnr, nowait = true })
+        end
     end
     map("<Esc>", function()
         if callbacks.on_escape then
@@ -2366,6 +2374,24 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
         pcall(vim.api.nvim_buf_del_keymap, bufnr, "n", keymap.lhs)
     end
     vim.keymap.set("n", "q", close_review, { buffer = bufnr, nowait = true })
+
+    -- Navigation keymaps for commit preview
+    local passthrough = require("review.config").get().navigation.passthrough
+    vim.keymap.set("n", "<C-h>", function()
+        local file_tree_component = layout.get_file_tree()
+        if
+            file_tree_component
+            and file_tree_component.winid
+            and vim.api.nvim_win_is_valid(file_tree_component.winid)
+        then
+            vim.api.nvim_set_current_win(file_tree_component.winid)
+        end
+    end, { buffer = bufnr, nowait = true })
+    if not passthrough then
+        vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
+        vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = bufnr, nowait = true })
+        vim.keymap.set("n", "<C-k>", "<Nop>", { buffer = bufnr, nowait = true })
+    end
 
     pcall(vim.api.nvim_buf_set_name, bufnr, "Review: commit preview")
 

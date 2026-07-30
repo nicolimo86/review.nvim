@@ -68,4 +68,14 @@ T["get returns current options"] = function()
     expect.equality(result.diff.base, "test")
 end
 
+T["navigation.passthrough defaults to true"] = function()
+    config.setup()
+    expect.equality(config.get().navigation.passthrough, true)
+end
+
+T["navigation.passthrough can be set to false"] = function()
+    config.setup({ navigation = { passthrough = false } })
+    expect.equality(config.get().navigation.passthrough, false)
+end
+
 return T

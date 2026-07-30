@@ -132,6 +132,7 @@ Autosave (`VimLeavePre`) is registered from `plugin/review.lua`, so sessions per
 - **Async git**: `core/git.lua` carries two variants of most operations. The plain ones call `vim.system():wait()`; the `*_async` ones (`get_diff_async`, `get_changed_files_async`, `get_all_file_statuses_async`, `get_file_at_rev_async`, plus the `*_streaming` commit helpers) must run inside `async.run()` and use `async.system()`/`async.all()`, which are coroutine wrappers that yield until the callback fires. The hot render paths — file tree refresh, diff rendering, treesitter highlight fetch — use the async variants and fan out concurrent git calls with `async.all()`; everything else stays synchronous
 - **Git root caching**: Cached to avoid repeated syscalls
 - **Keymap tracking**: Panels register keymaps through `ui/util.lua`'s buffer mapper so `?` can render the help overlay from the same list
+- **Navigation passthrough**: `config.navigation.passthrough` (default `true`) controls whether boundary `<C-h/j/k/l>` keys are bound to `<Nop>` at UI edges. When `true`, those keys are not captured, letting global keymaps (e.g. vim-tmux-navigator) handle them. Internal navigation (sidebar `<C-l>` to diff, diff `<C-h>` to sidebar, split-mode pane switching) is always bound regardless of this setting. The logic lives in `panel_keymaps.lua` and `diff_view.lua`.
 - **Highlight defaults**: Groups in `highlights.lua` use the `ui/palette.lua` colors and are set with `default = true`, and re-applied on `ColorScheme` so they survive a theme change
 
 ## User Commands

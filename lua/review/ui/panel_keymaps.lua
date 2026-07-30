@@ -14,6 +14,8 @@ end
 ---@field tab_target string Layout getter name for Tab cycling
 ---@field h_target string|nil Layout getter name for h key (nil = Nop)
 ---@field l_target string|nil Layout getter name for l key (nil = Nop)
+---@field cj_target string|nil Layout getter name for C-j (nil = boundary)
+---@field ck_target string|nil Layout getter name for C-k (nil = boundary)
 ---@field scroll_keys? {down: string, up: string} Scroll keys (default "<C-d>"/"<C-u>")
 ---@field keymap_group? string Group name for help overlay tracking
 
@@ -79,7 +81,12 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
 
     vim.keymap.set("n", "<Left>", "<Nop>", { buffer = bufnr, nowait = true })
     vim.keymap.set("n", "<Right>", "<Nop>", { buffer = bufnr, nowait = true })
-    vim.keymap.set("n", "<C-h>", "<Nop>", { buffer = bufnr, nowait = true })
+
+    local passthrough = require("review.config").get().navigation.passthrough
+
+    if not passthrough then
+        vim.keymap.set("n", "<C-h>", "<Nop>", { buffer = bufnr, nowait = true })
+    end
     vim.keymap.set("n", "<C-l>", function()
         local layout = require("review.ui.layout")
         if layout.is_split_mode() then
@@ -88,8 +95,20 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
             navigate_to("get_diff_view")
         end
     end, { buffer = bufnr, nowait = true })
-    vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = bufnr, nowait = true })
-    vim.keymap.set("n", "<C-k>", "<Nop>", { buffer = bufnr, nowait = true })
+    if navigation.cj_target then
+        vim.keymap.set("n", "<C-j>", function()
+            navigate_to(navigation.cj_target)
+        end, { buffer = bufnr, nowait = true })
+    elseif not passthrough then
+        vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = bufnr, nowait = true })
+    end
+    if navigation.ck_target then
+        vim.keymap.set("n", "<C-k>", function()
+            navigate_to(navigation.ck_target)
+        end, { buffer = bufnr, nowait = true })
+    elseif not passthrough then
+        vim.keymap.set("n", "<C-k>", "<Nop>", { buffer = bufnr, nowait = true })
+    end
 end
 
 return M

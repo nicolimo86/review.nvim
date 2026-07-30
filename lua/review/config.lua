@@ -2,6 +2,7 @@
 ---@field keymaps ReviewKeymaps
 ---@field diff ReviewDiffConfig
 ---@field ui ReviewUIConfig
+---@field navigation ReviewNavigationConfig
 ---@field tmux ReviewTmuxConfig
 ---@field quick_comments ReviewQuickCommentsConfig
 ---@field export ReviewExportConfig
@@ -20,6 +21,9 @@
 ---@class ReviewUIConfig
 ---@field file_tree_width number Width of file tree panel (percentage)
 ---@field diff_view_mode "unified"|"split" Default diff view mode
+
+---@class ReviewNavigationConfig
+---@field passthrough boolean When true, boundary C-h/j/k/l keys are not captured, letting global keymaps (e.g. vim-tmux-navigator) handle them
 
 ---@class ReviewTmuxConfig
 ---@field target string Target window/pane (e.g., "!" for last active pane, or a window name)
@@ -69,6 +73,9 @@ M.defaults = {
     ui = {
         file_tree_width = 33,
         diff_view_mode = "unified",
+    },
+    navigation = {
+        passthrough = true,
     },
     tmux = {
         target = "!",

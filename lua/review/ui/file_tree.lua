@@ -1493,6 +1493,8 @@ local function setup_keymaps(bufnr, callbacks)
         tab_target = "get_branch_list",
         h_target = nil,
         l_target = "get_branch_list",
+        cj_target = "get_branch_list",
+        ck_target = nil,
         scroll_keys = { down = "J", up = "K" },
         keymap_group = "Navigation",
     }, close_review, active_timers, map, callbacks.on_escape)

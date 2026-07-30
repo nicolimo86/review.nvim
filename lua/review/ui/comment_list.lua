@@ -605,6 +605,8 @@ local function setup_keymaps(bufnr)
         tab_target = "get_file_tree",
         h_target = "get_commit_list",
         l_target = nil,
+        cj_target = nil,
+        ck_target = "get_commit_list",
     }, function()
         if callbacks.on_close then
             callbacks.on_close()
