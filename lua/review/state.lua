@@ -3,7 +3,9 @@
 ---@field file string File path
 ---@field line number Display row in the current rendering, re-anchored on render
 ---@field original_line number|nil Original line in source file
+---@field original_line_end number|nil End of range (source line), nil for single-line comments
 ---@field side "old"|"new"|nil Which side of the diff original_line refers to
+---@field side_end "old"|"new"|nil Which side of the diff original_line_end refers to
 ---@field type "note"|"fix"|"question"
 ---@field text string Comment text
 ---@field created_at number Timestamp
@@ -89,15 +91,19 @@ end
 ---@param text string
 ---@param original_line number|nil
 ---@param side "old"|"new"|nil
+---@param original_line_end number|nil
+---@param side_end "old"|"new"|nil
 ---@return ReviewComment
-function M.add_comment(file, line, type, text, original_line, side)
+function M.add_comment(file, line, type, text, original_line, side, original_line_end, side_end)
     local file_state = M.get_file_state(file)
     local comment = {
         id = M.generate_comment_id(),
         file = file,
         line = line,
         original_line = original_line,
+        original_line_end = original_line_end,
         side = side,
+        side_end = side_end,
         type = type,
         text = text,
         created_at = os.time(),

@@ -926,13 +926,16 @@ local function display_row_for(comment, render_lines)
         return comment.line
     end
 
-    local want_old = comment.side == "old"
+    -- For range comments, anchor at the start of the range (comment renders above)
+    local anchor_line = comment.original_line
+    local anchor_side = comment.side
+    local want_old = anchor_side == "old"
 
     for index, line in ipairs(render_lines) do
         local is_old = line.type == "delete"
         if is_old == want_old then
             local source = line.source_line or (is_old and line.old_line or line.new_line)
-            if source == comment.original_line then
+            if source == anchor_line then
                 return index
             end
         end
@@ -952,7 +955,18 @@ local function build_comment_virt_lines(comment, max_box_width, is_focused)
         return {}
     end
 
-    local header = string.format(" %s %s ", type_info.icon, type_info.label)
+    local header
+    if comment.original_line_end and comment.original_line then
+        header = string.format(
+            " %s %s L%d-%d ",
+            type_info.icon,
+            type_info.label,
+            comment.original_line,
+            comment.original_line_end
+        )
+    else
+        header = string.format(" %s %s ", type_info.icon, type_info.label)
+    end
     local header_width = vim.api.nvim_strwidth(header)
 
     local max_text_width = max_box_width and (max_box_width - 2) or nil
@@ -1045,13 +1059,38 @@ local function render_comments(bufnr, file)
             pcall(function()
                 vim.api.nvim_buf_set_extmark(bufnr, ns_comments, comment.line - 1, 0, {
                     virt_lines = virt_lines,
-                    virt_lines_above = false,
+                    virt_lines_above = true,
                 })
 
                 vim.api.nvim_buf_set_extmark(bufnr, ns_comments, comment.line - 1, 0, {
                     sign_text = type_info.icon,
                     sign_hl_group = type_info.highlight,
                 })
+
+                -- Range bar: place ▎ sign on each line in the range
+                if comment.original_line_end and cur_render_lines then
+                    local end_row = nil
+                    local want_old_end = comment.side_end == "old"
+                    for index, line in ipairs(cur_render_lines) do
+                        local is_old = line.type == "delete"
+                        if is_old == want_old_end then
+                            local source = line.source_line or (is_old and line.old_line or line.new_line)
+                            if source == comment.original_line_end then
+                                end_row = index
+                                break
+                            end
+                        end
+                    end
+                    if end_row then
+                        local start_row = comment.line
+                        for row = start_row, end_row do
+                            vim.api.nvim_buf_set_extmark(bufnr, ns_comments, row - 1, 0, {
+                                sign_text = "▎",
+                                sign_hl_group = type_info.range_hl,
+                            })
+                        end
+                    end
+                end
             end)
         end
     end
@@ -1103,13 +1142,21 @@ local function update_comment_focus(bufnr, file, old_focus, new_focus)
                 pcall(function()
                     vim.api.nvim_buf_set_extmark(bufnr, ns_comments, zero_line, 0, {
                         virt_lines = virt_lines,
-                        virt_lines_above = false,
+                        virt_lines_above = true,
                     })
 
                     vim.api.nvim_buf_set_extmark(bufnr, ns_comments, zero_line, 0, {
                         sign_text = type_info.icon,
                         sign_hl_group = type_info.highlight,
                     })
+
+                    -- Re-add range bar sign on the anchor line if this is a range comment
+                    if comment.original_line_end then
+                        vim.api.nvim_buf_set_extmark(bufnr, ns_comments, zero_line, 0, {
+                            sign_text = "▎",
+                            sign_hl_group = type_info.range_hl,
+                        })
+                    end
                 end)
             end
         end
@@ -1489,6 +1536,242 @@ local function add_comment()
     vim.cmd("startinsert")
 end
 
+---Add comment anchored to a visual selection range
+local function add_comment_range()
+    if not M.current or not M.current.file then
+        return
+    end
+
+    -- Capture visual selection before exiting visual mode
+    local start_line = vim.fn.line("v")
+    local end_line = vim.fn.line(".")
+    if start_line > end_line then
+        start_line, end_line = end_line, start_line
+    end
+
+    -- Exit visual mode
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+
+    local render_lines = M.current.render_lines
+    if not render_lines then
+        return
+    end
+
+    -- Map start and end display rows to source lines
+    local source_start, side_start = diff_parser.get_source_line(start_line, render_lines)
+    local source_end, side_end_val = diff_parser.get_source_line(end_line, render_lines)
+
+    if not source_start then
+        vim.notify("Cannot comment on this line", vim.log.levels.WARN)
+        return
+    end
+    if not source_end then
+        source_end = source_start
+        side_end_val = side_start
+    end
+
+    local original_winid = vim.api.nvim_get_current_win()
+    local original_cursor = vim.api.nvim_win_get_cursor(original_winid)
+    local file = M.current.file
+    local bufnr = M.current.bufnr
+
+    -- Temporarily disable scrollbind/cursorbind in split mode
+    local split_windows = {}
+    if M.split_state then
+        if layout.current and layout.current.diff_view_old and layout.current.diff_view_new then
+            local old_win = layout.current.diff_view_old.winid
+            local new_win = layout.current.diff_view_new.winid
+            for _, winid in ipairs({ old_win, new_win }) do
+                if vim.api.nvim_win_is_valid(winid) then
+                    table.insert(split_windows, winid)
+                    vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
+                    vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
+                end
+            end
+        end
+    end
+
+    -- Create floating input window
+    local type_info = comment_types[comment_type_order[1]]
+    local input_buf = ui_util.create_comment_input_buffer()
+
+    local range_label = source_start .. "-" .. source_end
+    local win_width = 60
+    local win_opts = {
+        relative = "cursor",
+        row = 1,
+        col = 0,
+        width = win_width,
+        height = 5,
+        style = "minimal",
+        border = { "┏", "━", "┓", "┃", "┛", "━", "┗", "┃" },
+        title = " " .. type_info.icon .. " " .. type_info.label .. " L" .. range_label .. " ",
+        title_pos = "left",
+    }
+
+    local input_win = vim.api.nvim_open_win(input_buf, true, win_opts)
+
+    ui_util.disable_cmp_for_buffer()
+
+    vim.api.nvim_set_option_value(
+        "winhighlight",
+        "FloatBorder:" .. type_info.border_hl .. ",FloatTitle:" .. type_info.title_hl,
+        { win = input_win }
+    )
+    vim.api.nvim_set_option_value("wrap", true, { win = input_win })
+    vim.api.nvim_set_option_value("linebreak", true, { win = input_win })
+
+    local get_current_type = ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
+
+    local function close_input()
+        if vim.api.nvim_win_is_valid(input_win) then
+            vim.api.nvim_win_close(input_win, true)
+        end
+        if vim.api.nvim_buf_is_valid(input_buf) then
+            vim.api.nvim_buf_delete(input_buf, { force = true })
+        end
+        if vim.api.nvim_win_is_valid(original_winid) then
+            vim.api.nvim_set_current_win(original_winid)
+            local restore_buf = vim.api.nvim_win_get_buf(original_winid)
+            local max_row = vim.api.nvim_buf_line_count(restore_buf)
+            pcall(vim.api.nvim_win_set_cursor, original_winid, {
+                math.min(original_cursor[1], max_row),
+                original_cursor[2],
+            })
+        end
+        for _, winid in ipairs(split_windows) do
+            if vim.api.nvim_win_is_valid(winid) then
+                vim.api.nvim_set_option_value("scrollbind", true, { win = winid })
+                vim.api.nvim_set_option_value("cursorbind", true, { win = winid })
+            end
+        end
+        if #split_windows > 0 then
+            vim.cmd("syncbind")
+        end
+    end
+
+    local function submit()
+        local lines = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
+
+        while #lines > 0 and lines[#lines]:match("^%s*$") do
+            table.remove(lines)
+        end
+
+        vim.cmd("stopinsert")
+
+        local text = table.concat(lines, "\n")
+        if text ~= "" then
+            state.add_comment(
+                file,
+                end_line,
+                get_current_type(),
+                text,
+                source_start,
+                side_start,
+                source_end,
+                side_end_val
+            )
+        end
+
+        close_input()
+
+        if text ~= "" then
+            render_comments(bufnr, file)
+            require("review.ui.comment_list").refresh()
+        end
+    end
+
+    local function cancel()
+        vim.cmd("stopinsert")
+        close_input()
+    end
+
+    vim.keymap.set("i", "<CR>", submit, { buffer = input_buf, nowait = true })
+    vim.keymap.set("n", "<CR>", submit, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<C-c>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<S-CR>", "<CR>", { buffer = input_buf, nowait = true })
+
+    -- Template picker with Ctrl-T
+    vim.keymap.set("i", "<C-t>", function()
+        local cfg = require("review.config").get()
+        local templates = cfg.templates
+        if not templates or #templates == 0 then
+            return
+        end
+
+        local picker_lines = {}
+        for _, tmpl in ipairs(templates) do
+            table.insert(picker_lines, string.format(" %s  %s", tmpl.key, tmpl.label))
+        end
+
+        local picker_buf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_buf_set_lines(picker_buf, 0, -1, false, picker_lines)
+        vim.api.nvim_set_option_value("modifiable", false, { buf = picker_buf })
+        vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = picker_buf })
+
+        local picker_width = 0
+        for _, pl in ipairs(picker_lines) do
+            picker_width = math.max(picker_width, vim.fn.strdisplaywidth(pl))
+        end
+        picker_width = picker_width + 4
+
+        local picker_win = vim.api.nvim_open_win(picker_buf, true, {
+            relative = "win",
+            win = input_win,
+            row = -#picker_lines - 2,
+            col = 0,
+            width = picker_width,
+            height = #picker_lines,
+            style = "minimal",
+            border = "rounded",
+            title = " Templates ",
+            title_pos = "left",
+        })
+
+        vim.api.nvim_set_option_value(
+            "winhighlight",
+            "NormalFloat:Normal,FloatBorder:ReviewFloatBorder,FloatTitle:ReviewFloatTitle",
+            { win = picker_win }
+        )
+
+        local function close_picker()
+            if vim.api.nvim_win_is_valid(picker_win) then
+                vim.api.nvim_win_close(picker_win, true)
+            end
+            if vim.api.nvim_win_is_valid(input_win) then
+                vim.api.nvim_set_current_win(input_win)
+                vim.cmd("startinsert!")
+            end
+        end
+
+        vim.keymap.set("n", "<Esc>", close_picker, { buffer = picker_buf, nowait = true })
+        vim.keymap.set("n", "q", close_picker, { buffer = picker_buf, nowait = true })
+        vim.keymap.set("n", "<C-t>", close_picker, { buffer = picker_buf, nowait = true })
+
+        for _, tmpl in ipairs(templates) do
+            vim.keymap.set("n", tmpl.key, function()
+                if vim.api.nvim_win_is_valid(picker_win) then
+                    vim.api.nvim_win_close(picker_win, true)
+                end
+                if vim.api.nvim_win_is_valid(input_win) then
+                    vim.api.nvim_set_current_win(input_win)
+                end
+                vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, { tmpl.text })
+                if tmpl.text:match(": $") then
+                    vim.api.nvim_win_set_cursor(input_win, { 1, #tmpl.text })
+                    vim.cmd("startinsert!")
+                else
+                    submit()
+                end
+            end, { buffer = picker_buf, nowait = true })
+        end
+    end, { buffer = input_buf, nowait = true })
+
+    vim.cmd("startinsert")
+end
+
 ---Delete comment at current line
 local function delete_comment()
     if not M.current then
@@ -1788,6 +2071,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
     local all_bufnrs = old_bufnr and { bufnr, old_bufnr } or { bufnr }
 
     map("c", add_comment, { desc = "Add comment", group = "Comments" }, { bufnr })
+    vim.keymap.set("x", "c", add_comment_range, { buffer = bufnr, nowait = true, desc = "Add range comment" })
     map("dc", delete_comment, { desc = "Delete comment", group = "Comments" }, { bufnr })
     map("e", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
     map("]c", goto_next_hunk, { desc = "Next hunk", group = "Navigation" }, all_bufnrs)

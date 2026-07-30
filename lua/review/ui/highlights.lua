@@ -35,6 +35,9 @@ function M.setup()
         ReviewCommentBorderFocusFix = { fg = palette.negative },
         ReviewCommentBorderFocusQuestion = { fg = palette.highlight },
         ReviewCommentText = { fg = palette.text },
+        ReviewCommentRangeNote = { fg = palette.accent },
+        ReviewCommentRangeFix = { fg = palette.negative },
+        ReviewCommentRangeQuestion = { fg = palette.highlight },
 
         ReviewFileReviewed = { fg = palette.positive },
         ReviewFileModified = { fg = palette.caution },

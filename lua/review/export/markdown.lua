@@ -110,7 +110,14 @@ function M.generate()
             local type_label = type_labels[comment.type] or "NOTE"
             local display_line = comment.original_line or comment.line
 
-            table.insert(lines, string.format("### [%s] %s:%d", type_label, file, display_line))
+            if comment.original_line_end then
+                table.insert(
+                    lines,
+                    string.format("### [%s] %s:%d-%d", type_label, file, display_line, comment.original_line_end)
+                )
+            else
+                table.insert(lines, string.format("### [%s] %s:%d", type_label, file, display_line))
+            end
             table.insert(lines, "")
 
             if not language_cache[file] then
@@ -118,7 +125,35 @@ function M.generate()
             end
             local language = language_cache[file]
 
-            local context = get_diff_context(render_lines_data, comment.line, context_count)
+            -- For range comments, find the start display row and include the full range
+            local context
+            if comment.original_line_end and render_lines_data and comment.original_line then
+                local start_row = nil
+                local want_old_start = comment.side == "old"
+                for index, line in ipairs(render_lines_data) do
+                    local is_old = line.type == "delete"
+                    if is_old == want_old_start then
+                        local source = line.source_line or (is_old and line.old_line or line.new_line)
+                        if source == comment.original_line then
+                            start_row = index
+                            break
+                        end
+                    end
+                end
+                if start_row then
+                    local end_row = comment.line
+                    context = get_diff_context(
+                        render_lines_data,
+                        math.floor((start_row + end_row) / 2),
+                        math.max(context_count, math.ceil((end_row - start_row) / 2) + context_count)
+                    )
+                else
+                    context = get_diff_context(render_lines_data, comment.line, context_count)
+                end
+            else
+                context = get_diff_context(render_lines_data, comment.line, context_count)
+            end
+
             if context then
                 local fence = format.build_fence(context)
                 table.insert(lines, fence .. language)

@@ -275,4 +275,31 @@ update_comment_tests["preserves other fields"] = function()
     expect.equality(comments[1].id, comment.id)
 end
 
+local range_comment_tests = new_set()
+T["range_comments"] = range_comment_tests
+
+range_comment_tests["stores original_line_end and side_end"] = function()
+    local comment = state.add_comment("test.lua", 10, "fix", "Range issue", 5, "new", 12, "new")
+    expect.equality(comment.original_line, 5)
+    expect.equality(comment.original_line_end, 12)
+    expect.equality(comment.side, "new")
+    expect.equality(comment.side_end, "new")
+end
+
+range_comment_tests["range fields are nil for single-line comments"] = function()
+    local comment = state.add_comment("test.lua", 10, "note", "Single line", 5, "new")
+    expect.equality(comment.original_line_end, nil)
+    expect.equality(comment.side_end, nil)
+end
+
+range_comment_tests["range comment preserves all other fields"] = function()
+    local comment = state.add_comment("test.lua", 10, "question", "Why?", 5, "old", 8, "old")
+    expect.equality(comment.file, "test.lua")
+    expect.equality(comment.line, 10)
+    expect.equality(comment.type, "question")
+    expect.equality(comment.text, "Why?")
+    expect.equality(type(comment.created_at), "number")
+    expect.equality(type(comment.id), "string")
+end
+
 return T

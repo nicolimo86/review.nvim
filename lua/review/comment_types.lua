@@ -8,6 +8,7 @@ M.TYPES = {
         border_hl = "ReviewInputBorderNote",
         title_hl = "ReviewInputTitleNote",
         border_focus_hl = "ReviewCommentBorderFocusNote",
+        range_hl = "ReviewCommentRangeNote",
     },
     fix = {
         label = "Fix",
@@ -16,6 +17,7 @@ M.TYPES = {
         border_hl = "ReviewInputBorderFix",
         title_hl = "ReviewInputTitleFix",
         border_focus_hl = "ReviewCommentBorderFocusFix",
+        range_hl = "ReviewCommentRangeFix",
     },
     question = {
         label = "Question",
@@ -24,6 +26,7 @@ M.TYPES = {
         border_hl = "ReviewInputBorderQuestion",
         title_hl = "ReviewInputTitleQuestion",
         border_focus_hl = "ReviewCommentBorderFocusQuestion",
+        range_hl = "ReviewCommentRangeQuestion",
     },
 }
 

@@ -140,4 +140,52 @@ T["context boundary handling at start of render_lines"] = function()
     expect.equality(result:find("%+only line") ~= nil, true)
 end
 
+T["range comment shows start-end in header"] = function()
+    state.add_comment("test.lua", 5, "fix", "Fix range", 10, "new", 15, "new")
+    local file_state = state.get_file_state("test.lua")
+    file_state.render_lines = {
+        { type = "context", content = "line 1", new_line = 8 },
+        { type = "context", content = "line 2", new_line = 9 },
+        { type = "add", content = "line 3", new_line = 10 },
+        { type = "add", content = "line 4", new_line = 11 },
+        { type = "add", content = "line 5", new_line = 12 },
+    }
+    local result = markdown.generate()
+    expect.equality(result:find("%[FIX%] test.lua:10%-15") ~= nil, true)
+end
+
+T["range comment includes full range context"] = function()
+    config.setup({ export = { context_lines = 1 } })
+    state.add_comment("test.lua", 5, "note", "Range note", 2, "new", 4, "new")
+    local file_state = state.get_file_state("test.lua")
+    file_state.render_lines = {
+        { type = "context", content = "before", new_line = 1 },
+        { type = "add", content = "start", new_line = 2 },
+        { type = "add", content = "middle", new_line = 3 },
+        { type = "add", content = "end", new_line = 4 },
+        { type = "context", content = "after", new_line = 5 },
+    }
+    local result = markdown.generate()
+    -- Should include from start-1 to end+1 (context_lines=1)
+    expect.equality(result:find("before") ~= nil, true)
+    expect.equality(result:find("%+start") ~= nil, true)
+    expect.equality(result:find("%+middle") ~= nil, true)
+    expect.equality(result:find("%+end") ~= nil, true)
+    expect.equality(result:find("after") ~= nil, true)
+end
+
+T["single-line comment still shows single line in header"] = function()
+    state.add_comment("test.lua", 3, "note", "Single", 42, "new")
+    local file_state = state.get_file_state("test.lua")
+    file_state.render_lines = {
+        { type = "context", content = "a", new_line = 40 },
+        { type = "context", content = "b", new_line = 41 },
+        { type = "add", content = "c", new_line = 42 },
+    }
+    local result = markdown.generate()
+    expect.equality(result:find("%[NOTE%] test.lua:42") ~= nil, true)
+    -- Should NOT have a range dash
+    expect.equality(result:find("test.lua:42%-") == nil, true)
+end
+
 return T
