@@ -321,6 +321,18 @@ function M.create()
 
     apply_diff_win_options(base_win)
 
+    -- Set window-local cwd to git root so plugins calling getcwd(winid) work
+    local git = require("review.core.git")
+    local git_root = git.get_root()
+    if git_root then
+        vim.api.nvim_win_call(base_win, function()
+            vim.cmd("lcd " .. vim.fn.fnameescape(git_root))
+        end)
+    end
+
+    -- Ensure this window is recognized as most-recently-visited by sidekick.nvim
+    vim.w[base_win].sidekick_visit = vim.uv.hrtime()
+
     local positions = calculate_positions(true)
 
     M.current = {}
