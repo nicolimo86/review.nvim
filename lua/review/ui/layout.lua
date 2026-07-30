@@ -320,7 +320,7 @@ function M.create()
             end
             log.info("layout: review tab closed externally, tearing down")
             vim.schedule(function()
-                require("review.ui").close(false)
+                require("review.ui").close()
             end)
         end,
     })

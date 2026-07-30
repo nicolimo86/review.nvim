@@ -125,6 +125,27 @@ function M.remove_comment(file, comment_id)
 end
 
 ---@param file string
+---@param comment_id string
+---@param new_type "note"|"fix"|"question"
+---@param new_text string
+---@return boolean
+function M.update_comment(file, comment_id, new_type, new_text)
+    local file_state = M.state.files[file]
+    if not file_state then
+        return false
+    end
+
+    for _, comment in ipairs(file_state.comments) do
+        if comment.id == comment_id then
+            comment.type = new_type
+            comment.text = new_text
+            return true
+        end
+    end
+    return false
+end
+
+---@param file string
 ---@param line number
 ---@return ReviewComment|nil
 function M.get_comment_at_line(file, line)

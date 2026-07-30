@@ -35,7 +35,7 @@
 
 - Neovim 0.10 or later (enforced in `plugin/review.lua`)
 - `git` on `$PATH`
-- **tmux**, optional, only for `:Review send` and the "Copy & Send to tmux" exit option. Everything else works without it.
+- **tmux**, optional, only for `:Review send` and the `Q` close keymap. Everything else works without it.
 - [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons), optional, file icons. Without it the icon column is blank.
 - Tree-sitter parsers for the languages you review, optional, syntax highlighting inside the diff. Without a parser the diff still renders, just uncolored.
 
@@ -179,6 +179,8 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` (no-op unless a branch or commit is selected) |
 | `q` | Close the review |
+| `Q` | Copy & send to tmux, close |
+| `ry` | Copy to clipboard, close |
 | `?` | Help overlay |
 
 ### Diff pane
@@ -187,9 +189,9 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | --- | --- |
 | `c` | Add a comment on the current line |
 | `dc` | Delete the comment on the current line |
+| `e` | Edit the comment on the current line |
 | `]c` / `[c` | Next / previous hunk |
 | `]f` / `[f` | Next / previous file |
-| `e` | Open the real file at the current line, closing the review (raises the exit menu if you have comments) |
 | `S` | Toggle unified / side-by-side diff |
 | `{` / `}` | Shrink / expand diff context lines |
 | `<C-n>` | Hide / show the sidebar |
@@ -197,6 +199,8 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `<C-l>` | In side-by-side, from the left pane focuses the right pane |
 | `<Esc>` | Focus the Files panel, and reset the base to `HEAD` if a branch or commit was selected |
 | `q` | Close the review |
+| `Q` | Copy & send to tmux, close |
+| `ry` | Copy to clipboard, close |
 | `?` | Help overlay |
 
 In side-by-side mode, `c` and `dc` are only bound on the right (new) pane. A binary file renders as a `Binary file` placeholder instead of an empty pane.
@@ -231,6 +235,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `Q` | Copy & send to tmux, close |
+| `ry` | Copy to clipboard, close |
 | `?` | Help overlay |
 
 ### Commits panel
@@ -247,6 +253,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `Q` | Copy & send to tmux, close |
+| `ry` | Copy to clipboard, close |
 | `?` | Help overlay |
 
 ### Comments panel
@@ -256,6 +264,7 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `j` / `k` | Next / previous entry |
 | `<CR>` | Jump to the comment in the diff. On a directory in tree view: collapse/expand |
 | `d` | Delete the comment (confirms first) |
+| `e` | Edit the comment |
 | `t` | Toggle flat / tree grouping |
 | `P` | Push to remote |
 | `<C-d>` / `<C-u>` | Scroll the **diff pane** down / up |
@@ -264,6 +273,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-l>` | Focus the diff pane |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
+| `Q` | Copy & send to tmux, close |
+| `ry` | Copy to clipboard, close |
 | `?` | Help overlay |
 
 ### Quick comments panel
@@ -362,12 +373,10 @@ The loop:
 1. `:Review` opens the diff against `HEAD`, so you see whatever the agent just wrote.
 2. Read the diff. Press `c` on a line to attach a comment, `<Tab>` to pick its type (Fix / Note / Question), `<CR>` to submit. Comments render as boxed virtual lines under the code and collect in the Comments panel.
 3. `<Space>` on files in the Files panel to stage the parts you're keeping.
-4. `q` to close. If you have comments, an exit popup appears:
-   - **Exit, Copy & Send to tmux**: copies to the clipboard *and* pastes into the tmux target.
-   - **Exit & Copy**: clipboard only.
-   - **Exit**: keeps the session so `:Review` picks up where you left off.
-
-   The two copy options clear the saved session. With no comments, `q` exits straight away.
+4. Close the review:
+   - `q`: closes immediately, preserving the session so `:Review` picks up where you left off.
+   - `Q`: copies comments to the clipboard, sends them to the tmux target, clears the session, and closes.
+   - `ry`: copies comments to the clipboard, clears the session, and closes.
 5. Paste into the agent, or let tmux do it for you.
 
 `:Review export` and `:Review send [target]` do the same export without closing the UI.

@@ -100,8 +100,8 @@ function M.open()
         on_file_select = function(path)
             M.show_diff(path)
         end,
-        on_close = function(send_comments)
-            M.close(send_comments)
+        on_close = function()
+            M.close()
         end,
         on_escape = function()
             M.reset_to_head()
@@ -183,6 +183,9 @@ function M.open()
         on_comment_delete = function(comment)
             state.remove_comment(comment.file, comment.id)
             diff_view.render()
+        end,
+        on_comment_edit = function(comment)
+            diff_view.edit_comment_at(comment)
         end,
         on_close = function()
             M.close()
@@ -289,8 +292,8 @@ function M.show_diff(path)
 
     -- Create or update diff view
     diff_view.create(diff_split, path, {
-        on_close = function(send_comments)
-            M.close(send_comments)
+        on_close = function()
+            M.close()
         end,
         on_escape = function()
             M.reset_to_head()
@@ -362,47 +365,28 @@ local function do_close(action)
     state.reset()
 end
 
----Show exit popup with options
-local function show_exit_popup()
-    local all_comments = state.get_all_comments()
-    local has_comments = #all_comments > 0
-
-    local actions = { "copy_and_send", "copy", "exit" }
-    local labels = { "Exit, Copy & Send to tmux", "Exit & Copy", "Exit" }
-
-    local title = "Close review"
-    if has_comments then
-        title = title .. string.format(" (%d comment%s)", #all_comments, #all_comments == 1 and "" or "s")
-    end
-
-    ui_util.select({
-        title = title,
-        items = labels,
-        on_select = function(index)
-            do_close(actions[index])
-        end,
-    })
-end
-
----Close the review UI
----@param show_popup? boolean Whether to show exit popup (default true)
-function M.close(show_popup)
+---Close the review UI (always immediate, preserves session)
+function M.close()
     if not state.state.is_open then
         return
     end
+    do_close("exit")
+end
 
-    if show_popup == false then
-        -- Direct close without popup (used by pick_commit)
-        do_close("exit")
-    else
-        -- Only show popup if there are comments to potentially export
-        local all_comments = state.get_all_comments()
-        if #all_comments == 0 then
-            do_close("exit")
-        else
-            show_exit_popup()
-        end
+---Close the review UI, copy comments to clipboard and send to tmux (clears session)
+function M.close_and_send()
+    if not state.state.is_open then
+        return
     end
+    do_close("copy_and_send")
+end
+
+---Close the review UI and copy comments to clipboard (clears session)
+function M.close_and_copy()
+    if not state.state.is_open then
+        return
+    end
+    do_close("copy")
 end
 
 ---Toggle the review UI
@@ -544,7 +528,7 @@ function M.pick_commit(count)
             local hash = hashes[index]
 
             if state.state.is_open then
-                M.close(false)
+                M.close()
             end
 
             if hash == "HEAD" then

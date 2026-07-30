@@ -224,4 +224,55 @@ grouped_tests["returns deep copy"] = function()
     expect.equality(original[1].text, "original")
 end
 
+local update_comment_tests = new_set()
+T["update_comment"] = update_comment_tests
+
+update_comment_tests["returns true on success"] = function()
+    local comment = state.add_comment("test.lua", 1, "note", "hello")
+    expect.equality(state.update_comment("test.lua", comment.id, "fix", "updated"), true)
+end
+
+update_comment_tests["returns false for missing file"] = function()
+    expect.equality(state.update_comment("nonexistent.lua", "comment_1", "fix", "text"), false)
+end
+
+update_comment_tests["returns false for missing comment id"] = function()
+    state.add_comment("test.lua", 1, "note", "hello")
+    expect.equality(state.update_comment("test.lua", "comment_999", "fix", "text"), false)
+end
+
+update_comment_tests["updates type and text correctly"] = function()
+    local comment = state.add_comment("test.lua", 5, "note", "original text")
+    state.update_comment("test.lua", comment.id, "question", "new text")
+    local comments = state.get_comments_for_file("test.lua")
+    expect.equality(comments[1].type, "question")
+    expect.equality(comments[1].text, "new text")
+end
+
+update_comment_tests["does not affect other comments"] = function()
+    state.add_comment("test.lua", 1, "note", "first")
+    local second = state.add_comment("test.lua", 2, "fix", "second")
+    state.add_comment("test.lua", 3, "question", "third")
+    state.update_comment("test.lua", second.id, "note", "modified")
+    local comments = state.get_comments_for_file("test.lua")
+    expect.equality(comments[1].text, "first")
+    expect.equality(comments[1].type, "note")
+    expect.equality(comments[2].text, "modified")
+    expect.equality(comments[2].type, "note")
+    expect.equality(comments[3].text, "third")
+    expect.equality(comments[3].type, "question")
+end
+
+update_comment_tests["preserves other fields"] = function()
+    local comment = state.add_comment("test.lua", 7, "note", "hello", 42, "new")
+    local created = comment.created_at
+    state.update_comment("test.lua", comment.id, "fix", "updated")
+    local comments = state.get_comments_for_file("test.lua")
+    expect.equality(comments[1].line, 7)
+    expect.equality(comments[1].original_line, 42)
+    expect.equality(comments[1].side, "new")
+    expect.equality(comments[1].created_at, created)
+    expect.equality(comments[1].id, comment.id)
+end
+
 return T

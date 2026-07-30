@@ -94,9 +94,18 @@ end
 ---@param input_win number
 ---@param comment_types table
 ---@param comment_type_order string[]
+---@param initial_type? string Optional starting type key (defaults to first in order)
 ---@return fun(): string get_current_type Returns current comment type key
-function M.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order)
+function M.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order, initial_type)
     local type_idx = 1
+    if initial_type then
+        for i, key in ipairs(comment_type_order) do
+            if key == initial_type then
+                type_idx = i
+                break
+            end
+        end
+    end
     local current_type = comment_type_order[type_idx]
 
     local function update_title()
@@ -110,6 +119,9 @@ function M.setup_comment_type_cycling(input_buf, input_win, comment_types, comme
             { win = input_win }
         )
     end
+
+    -- Apply initial title/highlight immediately
+    update_title()
 
     vim.keymap.set("i", "<Tab>", function()
         type_idx = (type_idx % #comment_type_order) + 1

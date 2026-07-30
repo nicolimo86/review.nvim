@@ -1412,6 +1412,254 @@ local function delete_comment()
     end
 end
 
+---Open the edit popup for a given comment object
+---@param comment ReviewComment
+local function open_edit_popup(comment)
+    if not M.current then
+        return
+    end
+
+    local original_winid = vim.api.nvim_get_current_win()
+    local original_cursor = vim.api.nvim_win_get_cursor(original_winid)
+    local file = comment.file
+    local bufnr = M.current.bufnr
+
+    -- Temporarily disable scrollbind/cursorbind in split mode to prevent scroll jump
+    local split_windows = {}
+    if M.split_state then
+        if layout.current and layout.current.diff_view_old and layout.current.diff_view_new then
+            local old_win = layout.current.diff_view_old.winid
+            local new_win = layout.current.diff_view_new.winid
+            for _, winid in ipairs({ old_win, new_win }) do
+                if vim.api.nvim_win_is_valid(winid) then
+                    table.insert(split_windows, winid)
+                    vim.api.nvim_set_option_value("scrollbind", false, { win = winid })
+                    vim.api.nvim_set_option_value("cursorbind", false, { win = winid })
+                end
+            end
+        end
+    end
+
+    -- Create floating input window with existing type
+    local type_info = comment_types[comment.type]
+    local input_buf = ui_util.create_comment_input_buffer()
+
+    local win_width = 60
+    local win_opts = {
+        relative = "cursor",
+        row = 1,
+        col = 0,
+        width = win_width,
+        height = 5,
+        style = "minimal",
+        border = { "┏", "━", "┓", "┃", "┛", "━", "┗", "┃" },
+        title = " " .. type_info.icon .. " " .. type_info.label .. " ",
+        title_pos = "left",
+    }
+
+    local input_win = vim.api.nvim_open_win(input_buf, true, win_opts)
+
+    ui_util.disable_cmp_for_buffer()
+
+    vim.api.nvim_set_option_value(
+        "winhighlight",
+        "FloatBorder:" .. type_info.border_hl .. ",FloatTitle:" .. type_info.title_hl,
+        { win = input_win }
+    )
+    vim.api.nvim_set_option_value("wrap", true, { win = input_win })
+    vim.api.nvim_set_option_value("linebreak", true, { win = input_win })
+
+    -- Pre-fill with existing text
+    local existing_lines = vim.split(comment.text, "\n")
+    vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, existing_lines)
+
+    local get_current_type =
+        ui_util.setup_comment_type_cycling(input_buf, input_win, comment_types, comment_type_order, comment.type)
+
+    local function close_input()
+        if vim.api.nvim_win_is_valid(input_win) then
+            vim.api.nvim_win_close(input_win, true)
+        end
+        if vim.api.nvim_buf_is_valid(input_buf) then
+            vim.api.nvim_buf_delete(input_buf, { force = true })
+        end
+        if vim.api.nvim_win_is_valid(original_winid) then
+            vim.api.nvim_set_current_win(original_winid)
+            local restore_buf = vim.api.nvim_win_get_buf(original_winid)
+            local max_row = vim.api.nvim_buf_line_count(restore_buf)
+            pcall(vim.api.nvim_win_set_cursor, original_winid, {
+                math.min(original_cursor[1], max_row),
+                original_cursor[2],
+            })
+        end
+        for _, winid in ipairs(split_windows) do
+            if vim.api.nvim_win_is_valid(winid) then
+                vim.api.nvim_set_option_value("scrollbind", true, { win = winid })
+                vim.api.nvim_set_option_value("cursorbind", true, { win = winid })
+            end
+        end
+        if #split_windows > 0 then
+            vim.cmd("syncbind")
+        end
+    end
+
+    local function submit()
+        local lines = vim.api.nvim_buf_get_lines(input_buf, 0, -1, false)
+
+        while #lines > 0 and lines[#lines]:match("^%s*$") do
+            table.remove(lines)
+        end
+
+        vim.cmd("stopinsert")
+
+        local text = table.concat(lines, "\n")
+        if text == "" then
+            -- Empty submission deletes the comment
+            state.remove_comment(file, comment.id)
+            vim.notify("Comment deleted", vim.log.levels.INFO)
+        else
+            state.update_comment(file, comment.id, get_current_type(), text)
+        end
+
+        close_input()
+        render_comments(bufnr, file)
+        require("review.ui.comment_list").refresh()
+    end
+
+    local function cancel()
+        vim.cmd("stopinsert")
+        close_input()
+    end
+
+    vim.keymap.set("i", "<CR>", submit, { buffer = input_buf, nowait = true })
+    vim.keymap.set("n", "<CR>", submit, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("n", "<Esc>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<C-c>", cancel, { buffer = input_buf, nowait = true })
+    vim.keymap.set("i", "<S-CR>", "<CR>", { buffer = input_buf, nowait = true })
+
+    -- Template picker with Ctrl-T
+    vim.keymap.set("i", "<C-t>", function()
+        local cfg = require("review.config").get()
+        local templates = cfg.templates
+        if not templates or #templates == 0 then
+            return
+        end
+
+        local picker_lines = {}
+        for _, template in ipairs(templates) do
+            table.insert(picker_lines, string.format("  %s  %s", template.key, template.label))
+        end
+
+        local picker_width = 30
+        for _, line in ipairs(picker_lines) do
+            picker_width = math.max(picker_width, vim.api.nvim_strwidth(line) + 4)
+        end
+
+        local picker_buf = vim.api.nvim_create_buf(false, true)
+        vim.api.nvim_buf_set_lines(picker_buf, 0, -1, false, picker_lines)
+
+        for line_idx, _ in ipairs(templates) do
+            vim.api.nvim_buf_add_highlight(picker_buf, -1, "ReviewTemplateKey", line_idx - 1, 2, 3)
+            vim.api.nvim_buf_add_highlight(picker_buf, -1, "ReviewTemplateLabel", line_idx - 1, 5, -1)
+        end
+
+        local picker_win = vim.api.nvim_open_win(picker_buf, true, {
+            relative = "cursor",
+            row = 1,
+            col = 0,
+            width = picker_width,
+            height = #picker_lines,
+            style = "minimal",
+            border = "rounded",
+            title = " Templates ",
+            title_pos = "center",
+        })
+
+        vim.api.nvim_set_option_value(
+            "winhighlight",
+            "FloatBorder:ReviewTemplateBorder,FloatTitle:ReviewTemplateTitle",
+            { win = picker_win }
+        )
+
+        local function close_picker()
+            if vim.api.nvim_win_is_valid(picker_win) then
+                vim.api.nvim_win_close(picker_win, true)
+            end
+            if vim.api.nvim_buf_is_valid(picker_buf) then
+                vim.api.nvim_buf_delete(picker_buf, { force = true })
+            end
+            if vim.api.nvim_win_is_valid(input_win) then
+                vim.api.nvim_set_current_win(input_win)
+                vim.cmd("startinsert!")
+            end
+        end
+
+        local function apply_template(template)
+            close_picker()
+            if vim.api.nvim_buf_is_valid(input_buf) then
+                vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, { template.text })
+                if template.text:match(": $") then
+                    vim.api.nvim_win_set_cursor(input_win, { 1, #template.text })
+                else
+                    submit()
+                end
+            end
+        end
+
+        for _, template in ipairs(templates) do
+            vim.keymap.set("n", template.key, function()
+                apply_template(template)
+            end, { buffer = picker_buf, nowait = true })
+        end
+
+        vim.keymap.set("n", "<Esc>", close_picker, { buffer = picker_buf, nowait = true })
+        vim.keymap.set("n", "q", close_picker, { buffer = picker_buf, nowait = true })
+        vim.keymap.set("n", "<C-t>", close_picker, { buffer = picker_buf, nowait = true })
+    end, { buffer = input_buf, nowait = true })
+
+    -- Start in insert mode at end of text
+    vim.cmd("startinsert!")
+end
+
+---Edit comment at current cursor line in the diff pane
+local function edit_comment()
+    if not M.current or not M.current.file then
+        return
+    end
+
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local line_num = cursor[1]
+
+    local comment = state.get_comment_at_line(M.current.file, line_num)
+    if not comment then
+        vim.notify("No comment at this line", vim.log.levels.WARN)
+        return
+    end
+
+    open_edit_popup(comment)
+end
+
+---Edit a specific comment (called from Comments panel callback)
+---@param comment ReviewComment
+function M.edit_comment_at(comment)
+    if not M.current then
+        return
+    end
+
+    -- Position cursor at the comment's line
+    local diff_win = layout.get_diff_view()
+    if diff_win and diff_win.winid and vim.api.nvim_win_is_valid(diff_win.winid) then
+        vim.api.nvim_set_current_win(diff_win.winid)
+        local max_row = vim.api.nvim_buf_line_count(vim.api.nvim_win_get_buf(diff_win.winid))
+        if comment.line <= max_row then
+            pcall(vim.api.nvim_win_set_cursor, diff_win.winid, { comment.line, 0 })
+        end
+    end
+
+    open_edit_popup(comment)
+end
+
 ---@type {lhs: string, desc: string, group: string}[]
 local registered_keymaps = {}
 
@@ -1444,25 +1692,11 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
 
     map("c", add_comment, { desc = "Add comment", group = "Comments" }, { bufnr })
     map("dc", delete_comment, { desc = "Delete comment", group = "Comments" }, { bufnr })
+    map("e", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
     map("]c", goto_next_hunk, { desc = "Next hunk", group = "Navigation" }, all_bufnrs)
     map("[c", goto_prev_hunk, { desc = "Previous hunk", group = "Navigation" }, all_bufnrs)
     map("]f", goto_next_file, { desc = "Next file", group = "Navigation" }, all_bufnrs)
     map("[f", goto_prev_file, { desc = "Previous file", group = "Navigation" }, all_bufnrs)
-    map("e", function()
-        local file = state.state.current_file
-        if not file then
-            return
-        end
-        local source_line = get_current_source_line()
-        local git_root = git.get_root()
-        local filepath = git_root .. "/" .. file
-        local ui = require("review.ui")
-        ui.close(false)
-        vim.cmd("edit " .. vim.fn.fnameescape(filepath))
-        if source_line then
-            vim.api.nvim_win_set_cursor(0, { source_line, 0 })
-        end
-    end, { desc = "Open file at line", group = "Navigation" }, all_bufnrs)
     map("S", toggle_mode, { desc = "Toggle split/unified diff", group = "View" }, all_bufnrs)
     map("<C-n>", function()
         local ui = require("review.ui")
@@ -1568,6 +1802,12 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         end
     end, { nowait = true, desc = "Focus file tree", group = "Navigation" }, all_bufnrs)
     map("q", close_review, { nowait = true, desc = "Close review", group = "General" }, all_bufnrs)
+    map("Q", function()
+        require("review.ui").close_and_send()
+    end, { nowait = true, desc = "Copy & send to tmux, close", group = "General" }, all_bufnrs)
+    map("ry", function()
+        require("review.ui").close_and_copy()
+    end, { nowait = true, desc = "Copy to clipboard, close", group = "General" }, all_bufnrs)
     map("?", show_help, { desc = "Show help", group = "General" }, all_bufnrs)
 end
 

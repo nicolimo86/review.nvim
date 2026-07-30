@@ -34,7 +34,7 @@ function M.setup()
             elseif sha then
                 local was_open = ui.is_open()
                 if was_open then
-                    ui.close(false)
+                    ui.close()
                 end
                 state.state.base = sha
                 state.state.base_end = nil

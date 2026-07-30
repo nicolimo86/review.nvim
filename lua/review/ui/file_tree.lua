@@ -1667,7 +1667,7 @@ local function setup_keymaps(bufnr, callbacks)
         local absolute_path = git.get_root() .. "/" .. node.path
 
         local ui = require("review.ui")
-        ui.close(false)
+        ui.close()
 
         vim.cmd("edit " .. vim.fn.fnameescape(absolute_path))
 

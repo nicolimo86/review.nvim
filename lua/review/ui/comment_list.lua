@@ -575,6 +575,22 @@ local function setup_keymaps(bufnr)
         end)
     end, { nowait = true, desc = "Delete comment" })
 
+    map("e", function()
+        if not M.current then
+            return
+        end
+
+        local line = vim.api.nvim_win_get_cursor(0)[1]
+        local node = current_line_map[line]
+        if not node or node.type ~= "comment" or not node.comment then
+            return
+        end
+
+        if callbacks.on_comment_edit then
+            callbacks.on_comment_edit(node.comment)
+        end
+    end, { nowait = true, desc = "Edit comment" })
+
     map("t", function()
         if view_mode == "flat" then
             view_mode = "tree"
