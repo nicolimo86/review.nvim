@@ -191,7 +191,7 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `cy` | Copy the comment on the current line to clipboard |
 | `dc` | Delete the comment on the current line |
 | `e` | Edit the comment on the current line |
-| `D` | Clear all comments (confirms first) |
+| `X` | Clear all comments (confirms first) |
 | `]c` / `[c` | Next / previous hunk |
 | `]f` / `[f` | Next / previous file |
 | `v` | Toggle unified / side-by-side diff |

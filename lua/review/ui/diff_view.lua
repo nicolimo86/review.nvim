@@ -2101,7 +2101,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         end
     end, { desc = "Copy comment to clipboard", group = "Comments" }, { bufnr })
     map("e", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
-    map("D", function()
+    map("X", function()
         local all = state.get_all_comments()
         if #all == 0 then
             vim.notify("No comments to clear", vim.log.levels.WARN)
