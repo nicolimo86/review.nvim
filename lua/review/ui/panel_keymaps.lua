@@ -44,8 +44,10 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
     map_function("q", on_close, { nowait = true, desc = "Close review", group = group })
 
     map_function("S", function()
-        require("review.ui").close_and_send()
-    end, { nowait = true, desc = "Copy & send to tmux, close", group = group })
+        local export = require("review.export.markdown")
+        export.to_clipboard()
+        export.to_tmux(nil, false)
+    end, { nowait = true, desc = "Copy & send to tmux", group = group })
 
     map_function("W", function()
         require("review").export()

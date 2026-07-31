@@ -393,14 +393,6 @@ function M.close()
     do_close("exit")
 end
 
----Close the review UI, copy comments to clipboard and send to tmux (clears session)
-function M.close_and_send()
-    if not state.state.is_open then
-        return
-    end
-    do_close("copy_and_send")
-end
-
 ---Close the review UI and copy comments to clipboard (clears session)
 function M.close_and_copy()
     if not state.state.is_open then
