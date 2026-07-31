@@ -23,6 +23,7 @@
 ---@field diff_mode "unified"|"split"
 ---@field base string Git base for comparison
 ---@field base_end string|nil End of commit range (for history mode: base..base_end)
+---@field locked boolean Whether the comparison is locked (opened via :Review diff)
 ---@field comment_id_counter number
 ---@field diff_context number
 
@@ -35,6 +36,7 @@ local DEFAULT_STATE = {
     diff_mode = "unified",
     base = "HEAD",
     base_end = nil,
+    locked = false,
     comment_id_counter = 0,
     is_pushing = false,
     diff_context = 3,

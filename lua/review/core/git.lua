@@ -333,6 +333,24 @@ function M.is_safe_rev(rev)
     return type(rev) == "string" and rev ~= "" and rev:sub(1, 1) ~= "-"
 end
 
+---Check if a git ref (branch, tag, sha) exists
+---@param ref string
+---@return boolean
+function M.ref_exists(ref)
+    if not M.is_safe_rev(ref) then
+        return false
+    end
+    local git_root = M.get_root()
+    if not git_root then
+        return false
+    end
+    local result = vim.system(
+        { "git", "rev-parse", "--verify", "--quiet", ref },
+        { text = true, cwd = git_root }
+    ):wait()
+    return result.code == 0
+end
+
 ---Synthesize an add-only diff for an untracked file
 ---@param git_root string
 ---@param file string File path relative to git root
@@ -1009,6 +1027,52 @@ function M.get_local_branches(callback)
                         table.insert(branches, line)
                     end
                 end
+                callback(branches)
+            end)
+        end
+    )
+end
+
+---Get all local and remote branch names, excluding the current branch and HEAD pointers
+---@param callback fun(branches: string[])
+function M.get_all_branches(callback)
+    local git_root = M.get_root()
+    if not git_root then
+        callback({})
+        return
+    end
+
+    -- Get current branch synchronously for filtering
+    local head_result = vim.system(
+        { "git", "rev-parse", "--abbrev-ref", "HEAD" },
+        { text = true, cwd = git_root }
+    ):wait()
+    local current_branch = head_result.code == 0 and vim.trim(head_result.stdout) or nil
+
+    vim.system(
+        { "git", "-c", "core.quotepath=false", "branch", "-a", "--format=%(refname:short)" },
+        { text = true, cwd = git_root },
+        function(result)
+            vim.schedule(function()
+                if result.code ~= 0 then
+                    callback({})
+                    return
+                end
+
+                local branches = {}
+                local seen = {}
+                for line in parse_lines(result.stdout) do
+                    if
+                        line ~= ""
+                        and line ~= current_branch
+                        and not line:match("/HEAD$")
+                        and not seen[line]
+                    then
+                        seen[line] = true
+                        table.insert(branches, line)
+                    end
+                end
+                table.sort(branches)
                 callback(branches)
             end)
         end
