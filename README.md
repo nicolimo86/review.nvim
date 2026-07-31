@@ -113,7 +113,6 @@ lua require("review").setup({})
 | `:Review export` | Copy all comments to the clipboard as markdown |
 | `:Review send [target]` | Send comments to a tmux pane (defaults to `tmux.target`) |
 | `:Review commit <sha>` | Set the diff base to `<sha>` |
-| `:Review diff [branch]` | Diff against a branch (picker if no arg). Locked mode — close to return to HEAD |
 | `:Review pick [count]` | Pick a base commit from the last `count` commits (default 20) |
 | `:Review qc` | Add a quick comment on the current line of the current buffer |
 | `:Review qp` | Toggle the quick comments panel |

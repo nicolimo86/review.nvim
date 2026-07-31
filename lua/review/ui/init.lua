@@ -26,12 +26,7 @@ local function update_branch_info(branch_name)
     end
     local branch_info = layout.get_branch_info()
     if branch_info and vim.api.nvim_buf_is_valid(branch_info.bufnr) then
-        local display
-        if state.state.locked and state.state.base_end then
-            display = " " .. (branch_name or "unknown") .. " <-> " .. state.state.base_end
-        else
-            display = " " .. (branch_name or "unknown")
-        end
+        local display = " " .. (branch_name or "unknown")
         vim.api.nvim_set_option_value("modifiable", true, { buf = branch_info.bufnr })
         vim.api.nvim_buf_set_lines(branch_info.bufnr, 0, -1, false, { display })
         vim.api.nvim_set_option_value("modifiable", false, { buf = branch_info.bufnr })
@@ -381,14 +376,12 @@ local function do_close(action)
     -- Preserve comparison state on plain exit (toggle/q), reset on send/copy
     local saved_base = state.state.base
     local saved_base_end = state.state.base_end
-    local saved_locked = state.state.locked
 
     state.reset()
 
     if action == "exit" then
         state.state.base = saved_base
         state.state.base_end = saved_base_end
-        state.state.locked = saved_locked
     end
 end
 
@@ -437,25 +430,6 @@ function M.is_history_mode()
     return state.is_history_mode()
 end
 
----Open a branch picker and open the review UI with the selected branch
-function M.pick_branch_and_open()
-    git.get_all_branches(function(branches)
-        if #branches == 0 then
-            vim.notify("No branches found", vim.log.levels.WARN)
-            return
-        end
-        vim.ui.select(branches, { prompt = "Diff against branch:" }, function(choice)
-            if not choice then
-                return
-            end
-            state.state.base = "HEAD"
-            state.state.base_end = choice
-            state.state.locked = true
-            M.open()
-        end)
-    end)
-end
-
 ---Select a commit in-place (from commit list panel)
 ---@param entry CommitEntry
 function M.select_commit(entry)
@@ -499,10 +473,6 @@ end
 
 ---Reset comparison back to HEAD (undo branch/commit selection)
 function M.reset_to_head()
-    if state.state.locked then
-        return
-    end
-
     if not state.is_history_mode() then
         return
     end

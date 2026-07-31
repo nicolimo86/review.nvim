@@ -48,29 +48,6 @@ function M.setup()
         elseif subcommand == "pick" then
             local count = args[2] and tonumber(args[2]) or 20
             ui.pick_commit(count)
-        elseif subcommand == "diff" then
-            local git = require("review.core.git")
-            if ui.is_open() then
-                vim.notify("Review is already open. Close it first.", vim.log.levels.WARN)
-                return
-            end
-            local branch = args[2]
-            if branch then
-                if not git.is_safe_rev(branch) then
-                    vim.notify("Invalid ref: " .. branch, vim.log.levels.ERROR)
-                    return
-                end
-                if not git.ref_exists(branch) then
-                    vim.notify("Unknown ref: " .. branch, vim.log.levels.ERROR)
-                    return
-                end
-                state.state.base = "HEAD"
-                state.state.base_end = branch
-                state.state.locked = true
-                ui.open()
-            else
-                ui.pick_branch_and_open()
-            end
         elseif subcommand == "qc" then
             local quick_comments = require("review.quick_comments")
             quick_comments.add()
@@ -90,32 +67,7 @@ function M.setup()
             if #parts == 2 then
                 return vim.tbl_filter(function(item)
                     return vim.startswith(item, arg_lead)
-                end, { "close", "commit", "diff", "export", "log", "pick", "qc", "qp", "send" })
-            end
-            -- Branch completion for :Review diff <branch>
-            if #parts == 3 and parts[2] == "diff" then
-                local git = require("review.core.git")
-                local git_root = git.get_root()
-                if not git_root then
-                    return {}
-                end
-                local result = vim.system(
-                    { "git", "-c", "core.quotepath=false", "branch", "-a", "--format=%(refname:short)" },
-                    { text = true, cwd = git_root }
-                ):wait()
-                if result.code ~= 0 then
-                    return {}
-                end
-                local branches = {}
-                for line in result.stdout:gmatch("[^\r\n]+") do
-                    if line ~= "" and not line:match("/HEAD$") then
-                        if vim.startswith(line, arg_lead) then
-                            table.insert(branches, line)
-                        end
-                    end
-                end
-                table.sort(branches)
-                return branches
+                end, { "close", "commit", "export", "log", "pick", "qc", "qp", "send" })
             end
             return {}
         end,

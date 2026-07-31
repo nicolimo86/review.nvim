@@ -142,7 +142,6 @@ Autosave (`VimLeavePre`) is registered from `plugin/review.lua`, so sessions per
 - `:Review export` – Export comments to clipboard
 - `:Review send [target]` – Send comments to tmux pane
 - `:Review commit <sha>` – Change git comparison base
-- `:Review diff [branch]` – Diff against a branch (picker if no arg), locked mode
 - `:Review pick [count]` – Interactive commit picker
 - `:Review qc` – Add a quick comment on the current line
 - `:Review qp` – Toggle the quick comments panel
