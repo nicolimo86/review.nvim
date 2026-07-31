@@ -132,6 +132,7 @@ function M.setup()
 
         ReviewBranchName = { fg = palette.text },
         ReviewBranchMain = { fg = palette.positive },
+        ReviewBranchRemote = { fg = palette.faded },
         ReviewBranchHead = { fg = palette.accent },
         ReviewBranchActive = { fg = palette.positive, bold = true },
         ReviewBranchCurrent = { fg = palette.special },

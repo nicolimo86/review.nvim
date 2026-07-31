@@ -15,6 +15,8 @@ end
 ---@field name string
 ---@field is_current boolean
 ---@field is_main boolean
+---@field is_remote boolean|nil
+---@field is_separator boolean|nil
 
 ---@class BranchListComponent
 ---@field bufnr number
@@ -101,42 +103,49 @@ local function render(bufnr, branches, selected_index, _winid, sync_counts)
     ui_util.with_modifiable(bufnr, function()
         local lines = {}
         local highlight_ranges = {}
+        local separator_lines = {}
 
         for index, entry in ipairs(branches) do
-            local is_active = index == selected_index
-            local marker = is_active and " ▎" or "  "
-            local node = is_active and "● " or "○ "
-            local head_suffix = entry.is_current and " HEAD" or ""
-            local sync_suffix, ahead_str, behind_str = build_sync_suffix(sync_counts, entry.name)
+            if entry.is_separator then
+                table.insert(lines, "  ──────")
+                table.insert(separator_lines, index - 1)
+            else
+                local is_active = index == selected_index
+                local marker = is_active and " ▎" or "  "
+                local node = is_active and "● " or "○ "
+                local head_suffix = entry.is_current and " HEAD" or ""
+                local sync_suffix, ahead_str, behind_str = build_sync_suffix(sync_counts, entry.name)
 
-            local line = marker .. node .. entry.name .. head_suffix .. sync_suffix
-            table.insert(lines, line)
+                local line = marker .. node .. entry.name .. head_suffix .. sync_suffix
+                table.insert(lines, line)
 
-            local offset = 0
-            local marker_end = offset + #marker
-            local node_start = marker_end
-            local node_end = node_start + #node
-            local name_start = node_end
-            local name_end = name_start + #entry.name
-            local head_label_start = name_end
-            local head_label_end = head_label_start + #head_suffix
-            local ahead_start = head_label_end
-            local ahead_end = ahead_start + (ahead_str and #ahead_str or 0)
-            local behind_start = ahead_end
-            local behind_end = behind_start + (behind_str and #behind_str or 0)
+                local offset = 0
+                local marker_end = offset + #marker
+                local node_start = marker_end
+                local node_end = node_start + #node
+                local name_start = node_end
+                local name_end = name_start + #entry.name
+                local head_label_start = name_end
+                local head_label_end = head_label_start + #head_suffix
+                local ahead_start = head_label_end
+                local ahead_end = ahead_start + (ahead_str and #ahead_str or 0)
+                local behind_start = ahead_end
+                local behind_end = behind_start + (behind_str and #behind_str or 0)
 
-            table.insert(highlight_ranges, {
-                line_index = index - 1,
-                marker = { offset, marker_end },
-                node = { node_start, node_end },
-                name = { name_start, name_end },
-                head_label = entry.is_current and { head_label_start, head_label_end } or nil,
-                ahead = (ahead_str and #ahead_str > 0) and { ahead_start, ahead_end } or nil,
-                behind = (behind_str and #behind_str > 0) and { behind_start, behind_end } or nil,
-                is_active = is_active,
-                is_current = entry.is_current,
-                is_main = entry.is_main,
-            })
+                table.insert(highlight_ranges, {
+                    line_index = index - 1,
+                    marker = { offset, marker_end },
+                    node = { node_start, node_end },
+                    name = { name_start, name_end },
+                    head_label = entry.is_current and { head_label_start, head_label_end } or nil,
+                    ahead = (ahead_str and #ahead_str > 0) and { ahead_start, ahead_end } or nil,
+                    behind = (behind_str and #behind_str > 0) and { behind_start, behind_end } or nil,
+                    is_active = is_active,
+                    is_current = entry.is_current,
+                    is_main = entry.is_main,
+                    is_remote = entry.is_remote,
+                })
+            end
         end
 
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
@@ -171,6 +180,8 @@ local function render(bufnr, branches, selected_index, _winid, sync_counts)
                 name_highlight = "ReviewBranchCurrent"
             elseif range.is_main then
                 name_highlight = "ReviewBranchMain"
+            elseif range.is_remote then
+                name_highlight = "ReviewBranchRemote"
             else
                 name_highlight = "ReviewBranchName"
             end
@@ -209,10 +220,12 @@ local function render(bufnr, branches, selected_index, _winid, sync_counts)
                 )
             end
         end
+
+        for _, sep_line in ipairs(separator_lines) do
+            vim.api.nvim_buf_add_highlight(bufnr, -1, "ReviewBranchSeparator", sep_line, 0, -1)
+        end
     end)
 end
-
----Convert a branch list line number (1-indexed) to a branch index
 ---@param line number
 ---@return number|nil
 local function line_to_branch_index(line)
@@ -221,6 +234,11 @@ local function line_to_branch_index(line)
     end
 
     if line < 1 or line > #M.current.branches then
+        return nil
+    end
+
+    local entry = M.current.branches[line]
+    if entry and entry.is_separator then
         return nil
     end
 
@@ -604,22 +622,67 @@ function M.fetch_and_render(restore_cursor_line)
                 return
             end
 
-            local entries = {}
+            local local_entries = {}
 
             for _, branch_name in ipairs(branch_names) do
-                table.insert(entries, {
+                table.insert(local_entries, {
                     name = branch_name,
                     is_current = branch_name == current_branch,
                     is_main = branch_name == main_branch,
+                    is_remote = false,
                 })
             end
 
-            table.sort(entries, function(first, second)
+            table.sort(local_entries, function(first, second)
                 if first.is_current ~= second.is_current then
                     return first.is_current
                 end
-                return false
+                return first.name < second.name
             end)
+
+            -- Fetch remote branches
+            local remote_entries = {}
+            local git_root = git.get_root()
+            if git_root then
+                local result = vim.system(
+                    { "git", "-c", "core.quotepath=false", "branch", "-r", "--format=%(refname:short)" },
+                    { text = true, cwd = git_root }
+                ):wait()
+                if result.code == 0 then
+                    local local_set = {}
+                    for _, name in ipairs(branch_names) do
+                        local_set[name] = true
+                    end
+                    for line in result.stdout:gmatch("[^\r\n]+") do
+                        if line ~= "" and not line:match("/HEAD$") then
+                            local short = line:match("^[^/]+/(.+)$")
+                            if not local_set[short] then
+                                table.insert(remote_entries, {
+                                    name = line,
+                                    is_current = false,
+                                    is_main = false,
+                                    is_remote = true,
+                                })
+                            end
+                        end
+                    end
+                    table.sort(remote_entries, function(first, second)
+                        return first.name < second.name
+                    end)
+                end
+            end
+
+            -- Combine: local, separator, remote
+            local entries = {}
+            for _, entry in ipairs(local_entries) do
+                table.insert(entries, entry)
+            end
+            if #remote_entries > 0 then
+                table.insert(entries, { name = "", is_current = false, is_main = false, is_separator = true })
+                for _, entry in ipairs(remote_entries) do
+                    table.insert(entries, entry)
+                end
+            end
 
             M.current.branches = entries
             M.current.selected_index = find_active_index(entries)
