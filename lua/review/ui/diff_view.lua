@@ -2073,12 +2073,58 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
     map("c", add_comment, { desc = "Add comment", group = "Comments" }, { bufnr })
     vim.keymap.set("x", "c", add_comment_range, { buffer = bufnr, nowait = true, desc = "Add range comment" })
     map("dc", delete_comment, { desc = "Delete comment", group = "Comments" }, { bufnr })
+    map("cs", function()
+        if not M.current then
+            return
+        end
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        local comment = state.get_comment_at_line(M.current.file, cursor[1])
+        if comment then
+            require("review.export.markdown").single_to_tmux(comment)
+        else
+            vim.notify("No comment at this line", vim.log.levels.WARN)
+        end
+    end, { desc = "Send comment to tmux", group = "Comments" }, { bufnr })
+    map("cy", function()
+        if not M.current then
+            return
+        end
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        local comment = state.get_comment_at_line(M.current.file, cursor[1])
+        if comment then
+            local content = require("review.export.markdown").generate_single(comment)
+            vim.fn.setreg("+", content)
+            vim.fn.setreg("*", content)
+            vim.notify("Comment copied to clipboard", vim.log.levels.INFO)
+        else
+            vim.notify("No comment at this line", vim.log.levels.WARN)
+        end
+    end, { desc = "Copy comment to clipboard", group = "Comments" }, { bufnr })
     map("e", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
+    map("D", function()
+        local all = state.get_all_comments()
+        if #all == 0 then
+            vim.notify("No comments to clear", vim.log.levels.WARN)
+            return
+        end
+        vim.ui.select({ "Yes", "No" }, { prompt = string.format("Clear all %d comment(s)?", #all) }, function(choice)
+            if choice == "Yes" then
+                for _, file_state in pairs(state.state.files) do
+                    file_state.comments = {}
+                end
+                if M.current then
+                    render_comments(M.current.bufnr, M.current.file)
+                end
+                require("review.ui.comment_list").refresh()
+                vim.notify("All comments cleared", vim.log.levels.INFO)
+            end
+        end)
+    end, { desc = "Clear all comments", group = "Comments" }, { bufnr })
     map("]c", goto_next_hunk, { desc = "Next hunk", group = "Navigation" }, all_bufnrs)
     map("[c", goto_prev_hunk, { desc = "Previous hunk", group = "Navigation" }, all_bufnrs)
     map("]f", goto_next_file, { desc = "Next file", group = "Navigation" }, all_bufnrs)
     map("[f", goto_prev_file, { desc = "Previous file", group = "Navigation" }, all_bufnrs)
-    map("S", toggle_mode, { desc = "Toggle split/unified diff", group = "View" }, all_bufnrs)
+    map("v", toggle_mode, { desc = "Toggle split/unified diff", group = "View" }, all_bufnrs)
     map("<C-n>", function()
         local ui = require("review.ui")
         ui.toggle_file_tree()
@@ -2191,12 +2237,12 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         end
     end, { nowait = true, desc = "Focus file tree", group = "Navigation" }, all_bufnrs)
     map("q", close_review, { nowait = true, desc = "Close review", group = "General" }, all_bufnrs)
-    map("Q", function()
+    map("S", function()
         require("review.ui").close_and_send()
     end, { nowait = true, desc = "Copy & send to tmux, close", group = "General" }, all_bufnrs)
-    map("ry", function()
-        require("review.ui").close_and_copy()
-    end, { nowait = true, desc = "Copy to clipboard, close", group = "General" }, all_bufnrs)
+    map("W", function()
+        require("review").export()
+    end, { nowait = true, desc = "Export comments to clipboard", group = "General" }, all_bufnrs)
     map("?", show_help, { desc = "Show help", group = "General" }, all_bufnrs)
 end
 

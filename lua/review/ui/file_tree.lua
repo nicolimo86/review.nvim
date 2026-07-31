@@ -1600,7 +1600,7 @@ local function setup_keymaps(bufnr, callbacks)
     end, { desc = "Toggle file tree", group = "View" })
 
     -- Toggle split/unified diff
-    map("S", function()
+    map("v", function()
         local diff_view = require("review.ui.diff_view")
         diff_view.toggle_diff_mode({
             on_close = function(send_comments)

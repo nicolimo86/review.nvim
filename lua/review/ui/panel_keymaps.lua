@@ -43,13 +43,13 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
 
     map_function("q", on_close, { nowait = true, desc = "Close review", group = group })
 
-    map_function("Q", function()
+    map_function("S", function()
         require("review.ui").close_and_send()
     end, { nowait = true, desc = "Copy & send to tmux, close", group = group })
 
-    map_function("ry", function()
-        require("review.ui").close_and_copy()
-    end, { nowait = true, desc = "Copy to clipboard, close", group = group })
+    map_function("W", function()
+        require("review").export()
+    end, { nowait = true, desc = "Export comments to clipboard", group = group })
 
     if on_escape then
         map_function("<Esc>", on_escape, { nowait = true, desc = "Reset to HEAD", group = group })
