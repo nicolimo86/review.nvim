@@ -38,6 +38,9 @@ M.pad_bufnr = nil
 ---@type number|nil
 local resize_autocmd_id = nil
 
+---@type number|nil
+local win_resized_autocmd_id = nil
+
 ---@class SidebarPanelDef
 ---@field name string Key in ReviewLayout
 ---@field title string Display title for float border
@@ -124,16 +127,20 @@ local function update_border_highlights()
     end
 end
 
+local MIN_SIDEBAR_WIDTH = 20
+
 ---Calculate floating window positions for all panes
 ---@param sidebar_visible boolean
+---@param sidebar_content_width_override number|nil Override sidebar content width (from manual resize)
 ---@return table positions
-local function calculate_positions(sidebar_visible)
+local function calculate_positions(sidebar_visible, sidebar_content_width_override)
     local columns = vim.o.columns
     local lines = vim.o.lines
     local total_height = lines - 2
 
     local opts = config.get()
-    local sidebar_content_width = math.floor(columns * opts.ui.file_tree_width / 100)
+    local sidebar_content_width = sidebar_content_width_override
+        or math.floor(columns * opts.ui.file_tree_width / 100)
 
     local positions = {}
 
@@ -352,6 +359,45 @@ function M.create()
     resize_autocmd_id = vim.api.nvim_create_autocmd("VimResized", {
         callback = function()
             M.reposition()
+        end,
+    })
+
+    win_resized_autocmd_id = vim.api.nvim_create_autocmd("WinResized", {
+        callback = function()
+            if not M.current then
+                return
+            end
+            if not M.pad_winid or not vim.api.nvim_win_is_valid(M.pad_winid) then
+                return
+            end
+            if not M.is_file_tree_visible() then
+                return
+            end
+
+            local pad_width = vim.api.nvim_win_get_width(M.pad_winid)
+            -- Enforce minimum sidebar width
+            if pad_width < MIN_SIDEBAR_WIDTH then
+                vim.api.nvim_win_set_width(M.pad_winid, MIN_SIDEBAR_WIDTH)
+                pad_width = MIN_SIDEBAR_WIDTH
+            end
+
+            -- Sidebar content width is pad width minus border (2 cols)
+            local sidebar_content_width = math.max(pad_width - 2, 1)
+            local positions = calculate_positions(true, sidebar_content_width)
+
+            for _, panel_def in ipairs(SIDEBAR_PANELS) do
+                local component = M.current[panel_def.name]
+                local pos = positions[panel_def.name]
+                if component and pos and vim.api.nvim_win_is_valid(component.winid) then
+                    vim.api.nvim_win_set_config(component.winid, {
+                        relative = "editor",
+                        row = pos.row,
+                        col = pos.col,
+                        width = math.max(pos.width, 1),
+                        height = math.max(pos.height, 1),
+                    })
+                end
+            end
         end,
     })
 
@@ -747,6 +793,11 @@ function M.unmount()
         if resize_autocmd_id then
             vim.api.nvim_del_autocmd(resize_autocmd_id)
             resize_autocmd_id = nil
+        end
+
+        if win_resized_autocmd_id then
+            vim.api.nvim_del_autocmd(win_resized_autocmd_id)
+            win_resized_autocmd_id = nil
         end
 
         if focus_autocmd_id then
