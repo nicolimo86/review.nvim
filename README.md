@@ -116,6 +116,7 @@ lua require("review").setup({})
 | `:Review pick [count]` | Pick a base commit from the last `count` commits (default 20) |
 | `:Review qc` | Add a quick comment on the current line of the current buffer |
 | `:Review qp` | Toggle the quick comments panel |
+| `:Review gitlab` | Toggle GitLab MR mode (`S` prepends sync instructions with branch name) |
 | `:Review log` | Open the plugin log file in a new tab |
 
 `:checkhealth review` verifies the Neovim version, git and the repository, tmux and `$TMUX`, whether `setup()` has run, the log level, and the log file path. The "`setup()` has not been called" result is a warning, not an error. The defaults are in effect either way.
@@ -344,6 +345,9 @@ require("review").setup({
     persistence = {
         enabled = true,
     },
+    gitlab = {
+        preamble = "Post the following comments as discussions on the GitLab MR for branch `{branch}`. Each ### section is a separate discussion thread positioned on the file and line from its heading.\n\n",
+    },
     log_level = "WARN",
     log_file = nil,
     templates = {
@@ -373,6 +377,7 @@ The `nil` entries are unset by default. No global keymaps are created unless you
 - `export.context_lines`: lines of diff context included above and below each comment in the exported markdown.
 - `auto_refresh`: a filesystem watcher re-renders the UI when files change on disk, debounced by `debounce_ms`. It walks the git root and watches each directory individually (libuv has no recursive watching on Linux), skipping `.git`, `node_modules`, `target`, `dist`, `build`, `.venv` and `vendor`, and stops at 2000 directories. Past that a warning goes to the log and the rest of the tree is not watched. The directory list is built when the UI opens, so directories created afterwards are picked up on the next open. Useful when an agent is writing while you read.
 - `persistence.enabled`: remembers comments across sessions. State lives in `.git/review-session.json` and `.git/review-comments.json`, so nothing needs gitignoring.
+- `gitlab.preamble`: template prepended to exported comments when GitLab MR mode is active (`:Review gitlab`). `{branch}` is replaced with the branch selected in the Branches panel. The default instructs an AI agent to post the comments as MR discussion threads.
 - `log_level`: `"DEBUG"`, `"INFO"`, `"WARN"` or `"ERROR"`.
 - `log_file`: path to write the log to. Unset by default, in which case the log goes to `review.nvim/review.log` under the system temp directory (`vim.uv.os_tmpdir()`, typically `/tmp/review.nvim/review.log`) so it gets cleaned up with the rest of temp. Set this to keep the log somewhere persistent. Either way the file rotates: once it passes 1 MB it is moved to `<path>.old` and a fresh one is started. `:Review log` opens the current file.
 - `templates`: canned comment texts reachable with `<C-t>` in the diff comment input. A `text` ending in `": "` leaves the cursor at the end for you to finish; anything else submits immediately.

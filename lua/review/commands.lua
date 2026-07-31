@@ -57,6 +57,16 @@ function M.setup()
         elseif subcommand == "log" then
             local log = require("review.core.log")
             vim.cmd("tabedit " .. vim.fn.fnameescape(log.get_log_path()))
+        elseif subcommand == "gitlab" then
+            state.state.gitlab_mode = not state.state.gitlab_mode
+            if state.state.gitlab_mode then
+                vim.notify("GitLab MR mode enabled", vim.log.levels.INFO)
+            else
+                vim.notify("GitLab MR mode disabled", vim.log.levels.INFO)
+            end
+            if ui.is_open() then
+                ui.update_branch_info_display()
+            end
         else
             vim.notify("Unknown subcommand: " .. subcommand, vim.log.levels.ERROR)
         end
@@ -67,7 +77,7 @@ function M.setup()
             if #parts == 2 then
                 return vim.tbl_filter(function(item)
                     return vim.startswith(item, arg_lead)
-                end, { "close", "commit", "export", "log", "pick", "qc", "qp", "send" })
+                end, { "close", "commit", "export", "gitlab", "log", "pick", "qc", "qp", "send" })
             end
             return {}
         end,

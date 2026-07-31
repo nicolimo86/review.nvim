@@ -8,6 +8,7 @@
 ---@field export ReviewExportConfig
 ---@field auto_refresh ReviewAutoRefreshConfig
 ---@field persistence ReviewPersistenceConfig
+---@field gitlab ReviewGitlabConfig
 ---@field templates ReviewTemplate[]
 ---@field log_level string Log level: DEBUG, INFO, WARN, ERROR
 ---@field log_file string|nil Override the log file path (defaults to a file under the system temp dir)
@@ -54,6 +55,9 @@
 
 ---@class ReviewPersistenceConfig
 ---@field enabled boolean Whether to persist review sessions
+
+---@class ReviewGitlabConfig
+---@field preamble string Preamble template prepended to comments in gitlab mode. {branch} is replaced with the target branch name.
 
 ---@class ReviewTemplate
 ---@field key string Single character shortcut key
@@ -103,6 +107,9 @@ M.defaults = {
     },
     persistence = {
         enabled = true,
+    },
+    gitlab = {
+        preamble = "Post the following comments as discussions on the GitLab MR for branch `{branch}`. Each ### section is a separate discussion thread positioned on the file and line from its heading.\n\n",
     },
     log_level = "WARN",
     log_file = nil,

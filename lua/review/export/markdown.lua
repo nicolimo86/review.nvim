@@ -441,4 +441,59 @@ function M.to_tmux(target, silent)
     return true
 end
 
+---Send pre-built content to tmux (used by gitlab mode to send preamble + comments)
+---@param content string Content to send
+---@param target? string Optional tmux target pane
+---@return boolean success
+function M.to_tmux_raw(content, target)
+    if not is_tmux() then
+        vim.notify("Not running inside tmux", vim.log.levels.ERROR)
+        return false
+    end
+
+    local cfg = require("review.config").get()
+    target = target or cfg.tmux.target
+
+    local tmpfile = vim.fn.tempname()
+    local file = io.open(tmpfile, "w")
+    if not file then
+        vim.notify("Failed to create temp file", vim.log.levels.ERROR)
+        return false
+    end
+    file:write(content)
+    file:close()
+
+    vim.system({ "tmux", "load-buffer", "--", tmpfile }, {}, function(load_result)
+        if load_result.code ~= 0 then
+            vim.schedule(function()
+                vim.notify("Failed to load tmux buffer: " .. (load_result.stderr or ""), vim.log.levels.ERROR)
+                os.remove(tmpfile)
+            end)
+            return
+        end
+
+        vim.system({ "tmux", "paste-buffer", "-t", target }, {}, function(paste_result)
+            vim.schedule(function()
+                os.remove(tmpfile)
+
+                if paste_result.code ~= 0 then
+                    vim.notify(
+                        string.format("Failed to paste to tmux pane '%s': %s", target, paste_result.stderr or ""),
+                        vim.log.levels.ERROR
+                    )
+                    return
+                end
+
+                if cfg.tmux.auto_enter then
+                    vim.system({ "tmux", "send-keys", "-t", target, "Enter" })
+                end
+
+                vim.notify(string.format("Sent to tmux pane '%s' [MR]", target), vim.log.levels.INFO)
+            end)
+        end)
+    end)
+
+    return true
+end
+
 return M

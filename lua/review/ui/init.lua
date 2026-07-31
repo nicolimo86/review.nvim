@@ -27,9 +27,25 @@ local function update_branch_info(branch_name)
     local branch_info = layout.get_branch_info()
     if branch_info and vim.api.nvim_buf_is_valid(branch_info.bufnr) then
         local display = " " .. (branch_name or "unknown")
+        if state.state.gitlab_mode then
+            display = display .. " [MR]"
+        end
         vim.api.nvim_set_option_value("modifiable", true, { buf = branch_info.bufnr })
         vim.api.nvim_buf_set_lines(branch_info.bufnr, 0, -1, false, { display })
         vim.api.nvim_set_option_value("modifiable", false, { buf = branch_info.bufnr })
+
+        if state.state.gitlab_mode then
+            local ns = vim.api.nvim_create_namespace("review_branch_info")
+            vim.api.nvim_buf_clear_namespace(branch_info.bufnr, ns, 0, -1)
+            local line_text = vim.api.nvim_buf_get_lines(branch_info.bufnr, 0, 1, false)[1] or ""
+            local mr_start = line_text:find("%[MR%]")
+            if mr_start then
+                vim.api.nvim_buf_add_highlight(branch_info.bufnr, ns, "ReviewGitlabMode", 0, mr_start - 1, #line_text)
+            end
+        else
+            local ns = vim.api.nvim_create_namespace("review_branch_info")
+            vim.api.nvim_buf_clear_namespace(branch_info.bufnr, ns, 0, -1)
+        end
     end
 end
 
@@ -376,12 +392,14 @@ local function do_close(action)
     -- Preserve comparison state on plain exit (toggle/q), reset on send/copy
     local saved_base = state.state.base
     local saved_base_end = state.state.base_end
+    local saved_gitlab_mode = state.state.gitlab_mode
 
     state.reset()
 
     if action == "exit" then
         state.state.base = saved_base
         state.state.base_end = saved_base_end
+        state.state.gitlab_mode = saved_gitlab_mode
     end
 end
 
@@ -553,6 +571,18 @@ function M.pick_commit(count)
             M.open()
         end,
     })
+end
+
+---Refresh the branch info display (e.g. after toggling gitlab mode)
+function M.update_branch_info_display()
+    if not layout.is_mounted() then
+        return
+    end
+    git.get_current_branch(function(branch_name)
+        vim.schedule(function()
+            update_branch_info(branch_name)
+        end)
+    end)
 end
 
 return M

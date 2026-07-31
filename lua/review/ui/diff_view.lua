@@ -2239,8 +2239,21 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
     map("q", close_review, { nowait = true, desc = "Close review", group = "General" }, all_bufnrs)
     map("S", function()
         local export = require("review.export.markdown")
-        export.to_clipboard()
-        export.to_tmux(nil, false)
+        local review_state = require("review.state")
+        if review_state.state.gitlab_mode then
+            local cfg = require("review.config").get()
+            local branch = review_state.state.base_end or "unknown"
+            local preamble = cfg.gitlab.preamble:gsub("{branch}", branch)
+            local content = preamble .. export.generate()
+            vim.fn.setreg("+", content)
+            vim.fn.setreg("*", content)
+            local comment_count = #review_state.get_all_comments()
+            vim.notify(string.format("Exported %d comment(s) to clipboard [MR]", comment_count), vim.log.levels.INFO)
+            export.to_tmux_raw(content)
+        else
+            export.to_clipboard()
+            export.to_tmux(nil, false)
+        end
     end, { nowait = true, desc = "Copy & send to tmux", group = "General" }, all_bufnrs)
     map("W", function()
         require("review").export()

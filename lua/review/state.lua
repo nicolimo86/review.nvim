@@ -38,6 +38,7 @@ local DEFAULT_STATE = {
     comment_id_counter = 0,
     is_pushing = false,
     diff_context = 3,
+    gitlab_mode = false,
 }
 
 ---@type ReviewState

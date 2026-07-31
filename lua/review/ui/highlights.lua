@@ -139,6 +139,7 @@ function M.setup()
         ReviewBranchCurrentRow = { bg = palette.tint },
         ReviewBranchSeparator = { fg = palette.border },
         ReviewHeadLabel = { fg = palette.highlight, bold = true },
+        ReviewGitlabMode = { fg = palette.accent, bold = true },
     }
 
     for name, opts in pairs(highlights) do
