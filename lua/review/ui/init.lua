@@ -378,7 +378,18 @@ local function do_close(action)
         saved_showtabline = nil
     end
 
+    -- Preserve comparison state on plain exit (toggle/q), reset on send/copy
+    local saved_base = state.state.base
+    local saved_base_end = state.state.base_end
+    local saved_locked = state.state.locked
+
     state.reset()
+
+    if action == "exit" then
+        state.state.base = saved_base
+        state.state.base_end = saved_base_end
+        state.state.locked = saved_locked
+    end
 end
 
 ---Close the review UI (always immediate, preserves session)
