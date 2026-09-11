@@ -502,6 +502,9 @@ auto_refresh.debounce_ms ~
     log. The list is built when the UI opens, so directories created later
     are picked up the next time it opens. Useful when an agent is writing
     while you read.
+    The git directory's `HEAD`, `refs/` tree and `logs/` are watched on a
+    separate channel, so new commits, branches and checkouts refresh the
+    Commits and Branches panels (and the file tree) automatically.
 
 persistence.enabled ~
     Remember comments and review state between sessions. Files are written

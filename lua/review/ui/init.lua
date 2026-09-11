@@ -247,6 +247,15 @@ function M.open()
                     diff_view.render()
                 end
             end
+        end, function()
+            -- Git metadata changed (new commit, branch, checkout): refresh the
+            -- history panels and the file tree, since the diff range may have moved.
+            if not state.state.is_open then
+                return
+            end
+            commit_list.refresh()
+            branch_list.refresh()
+            file_tree.refresh()
         end)
     end
 end
