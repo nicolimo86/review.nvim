@@ -445,4 +445,69 @@ T["crlf diff strips carriage returns"] = function()
     expect.equality(parsed.hunks[1].lines[2].content, "b")
 end
 
+local resolve_new_side = new_set()
+T["resolve_new_side_line"] = resolve_new_side
+
+resolve_new_side["cursor on add line returns its new_line"] = function()
+    local lines = {
+        { type = "context", old_line = 1, new_line = 1 },
+        { type = "add", old_line = nil, new_line = 2 },
+        { type = "context", old_line = 2, new_line = 3 },
+    }
+    expect.equality(diff.resolve_new_side_line(lines, 2), 2)
+end
+
+resolve_new_side["cursor on context line returns its new_line"] = function()
+    local lines = {
+        { type = "context", old_line = 1, new_line = 1 },
+        { type = "add", old_line = nil, new_line = 2 },
+        { type = "context", old_line = 2, new_line = 3 },
+    }
+    expect.equality(diff.resolve_new_side_line(lines, 3), 3)
+end
+
+resolve_new_side["cursor on delete line falls to nearest new-side line above"] = function()
+    -- Deletions at the tail of the hunk: the only new-side line is above them.
+    local lines = {
+        { type = "context", old_line = 1, new_line = 1 },
+        { type = "delete", old_line = 2, new_line = nil },
+        { type = "delete", old_line = 3, new_line = nil },
+    }
+    expect.equality(diff.resolve_new_side_line(lines, 3), 1)
+end
+
+resolve_new_side["cursor on delete line falls to nearest new-side line below"] = function()
+    -- Deletions at the head of the hunk: the nearest new-side line is below.
+    local lines = {
+        { type = "delete", old_line = 1, new_line = nil },
+        { type = "delete", old_line = 2, new_line = nil },
+        { type = "context", old_line = 3, new_line = 5 },
+    }
+    expect.equality(diff.resolve_new_side_line(lines, 1), 5)
+end
+
+resolve_new_side["nearest wins when new-side lines exist on both sides"] = function()
+    local lines = {
+        { type = "context", old_line = 1, new_line = 1 },
+        { type = "delete", old_line = 2, new_line = nil },
+        { type = "delete", old_line = 3, new_line = nil },
+        { type = "context", old_line = 4, new_line = 2 },
+    }
+    -- Cursor on row 3: distance to row 4 (new_line 2) is 1, to row 1 (new_line 1) is 2.
+    expect.equality(diff.resolve_new_side_line(lines, 3), 2)
+end
+
+resolve_new_side["all-deletion hunk falls back to line 1"] = function()
+    local lines = {
+        { type = "delete", old_line = 1, new_line = nil },
+        { type = "delete", old_line = 2, new_line = nil },
+        { type = "delete", old_line = 3, new_line = nil },
+    }
+    expect.equality(diff.resolve_new_side_line(lines, 2), 1)
+end
+
+resolve_new_side["non-table render_lines falls back to line 1"] = function()
+    expect.equality(diff.resolve_new_side_line(nil, 1), 1)
+end
+
 return T

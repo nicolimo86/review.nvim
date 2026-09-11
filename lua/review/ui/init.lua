@@ -111,9 +111,26 @@ function M.open()
         persistence.load()
     end
 
+    -- Consume any remembered jump-to-file position so this open restores it.
+    -- In-memory only; cleared here so it applies to exactly one open.
+    local reopen = diff_view.pending_reopen
+    diff_view.pending_reopen = nil
+
+    -- Whether this open is restoring a remembered jump position. Captured here
+    -- because the `reopen` local is cleared inside on_file_select (which runs
+    -- asynchronously), so it cannot be relied on for the end-of-open focus.
+    local restoring = reopen ~= nil
+
     -- Initialize file tree
     file_tree.create(l.file_tree, {
+        initial_file = reopen and reopen.file or nil,
         on_file_select = function(path)
+            -- When restoring a remembered position, set the source line so the
+            -- diff render lands the cursor on the same line the user jumped from.
+            if reopen and path == reopen.file then
+                diff_view.pending_restore_source_line = reopen.source_line
+                reopen = nil
+            end
             M.show_diff(path)
         end,
         on_close = function()
@@ -220,8 +237,18 @@ function M.open()
         end)
     end
 
-    -- Focus file tree
-    if l.file_tree and l.file_tree.winid then
+    -- Focus the diff pane when restoring a remembered jump position so the user
+    -- lands on the restored hunk (the async diff render places the cursor via
+    -- pending_restore_source_line). Otherwise focus the file tree as usual.
+    local focused_diff = false
+    if restoring then
+        local diff_component = state.state.diff_mode == "split" and layout.get_diff_view_new() or layout.get_diff_view()
+        if diff_component and vim.api.nvim_win_is_valid(diff_component.winid) then
+            vim.api.nvim_set_current_win(diff_component.winid)
+            focused_diff = true
+        end
+    end
+    if not focused_diff and l.file_tree and l.file_tree.winid then
         vim.api.nvim_set_current_win(l.file_tree.winid)
     end
 
@@ -402,6 +429,7 @@ local function do_close(action)
     local saved_base = state.state.base
     local saved_base_end = state.state.base_end
     local saved_gitlab_mode = state.state.gitlab_mode
+    local saved_current_file = state.state.current_file
 
     state.reset()
 
@@ -409,6 +437,7 @@ local function do_close(action)
         state.state.base = saved_base
         state.state.base_end = saved_base_end
         state.state.gitlab_mode = saved_gitlab_mode
+        state.state.current_file = saved_current_file
     end
 end
 

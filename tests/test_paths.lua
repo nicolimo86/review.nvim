@@ -92,4 +92,52 @@ T["get_relative_path"]["leaves absolute paths alone outside cwd"] = function()
     expect.equality(paths.get_relative_path("/etc/hosts"), "/etc/hosts")
 end
 
+T["find_file_node_index"] = new_set()
+
+T["find_file_node_index"]["finds a matching file node"] = function()
+    local nodes = {
+        { is_root = true, path = "/" },
+        { is_file = true, path = "src/a.lua" },
+        { is_file = true, path = "src/b.lua" },
+    }
+    expect.equality(paths.find_file_node_index(nodes, "src/b.lua"), 3)
+end
+
+T["find_file_node_index"]["returns the first file node when several nodes precede it"] = function()
+    local nodes = {
+        { is_separator = true },
+        { is_directory = true, path = "src" },
+        { is_file = true, path = "src/a.lua" },
+    }
+    expect.equality(paths.find_file_node_index(nodes, "src/a.lua"), 3)
+end
+
+T["find_file_node_index"]["skips non-file nodes sharing the path"] = function()
+    local nodes = {
+        { is_directory = true, path = "src/a.lua" },
+        { is_file = true, path = "src/a.lua" },
+    }
+    expect.equality(paths.find_file_node_index(nodes, "src/a.lua"), 2)
+end
+
+T["find_file_node_index"]["returns nil when the path is absent"] = function()
+    local nodes = {
+        { is_file = true, path = "src/a.lua" },
+    }
+    expect.equality(paths.find_file_node_index(nodes, "src/missing.lua"), nil)
+end
+
+T["find_file_node_index"]["returns nil for nil nodes"] = function()
+    expect.equality(paths.find_file_node_index(nil, "src/a.lua"), nil)
+end
+
+T["find_file_node_index"]["returns nil for nil target"] = function()
+    local nodes = { { is_file = true, path = "src/a.lua" } }
+    expect.equality(paths.find_file_node_index(nodes, nil), nil)
+end
+
+T["find_file_node_index"]["returns nil for an empty node list"] = function()
+    expect.equality(paths.find_file_node_index({}, "src/a.lua"), nil)
+end
+
 return T

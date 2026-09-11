@@ -29,6 +29,23 @@ function M.is_test_file(filename)
     return false
 end
 
+---Find the index of the file node whose path matches the target.
+---Skips non-file nodes (directories, separators, roots). Pure over the node list.
+---@param nodes table[]|nil List of nodes, each with `is_file` and `path` fields
+---@param target_path string|nil Path to match
+---@return number|nil index 1-based index of the matching file node, or nil
+function M.find_file_node_index(nodes, target_path)
+    if not nodes or not target_path then
+        return nil
+    end
+    for index, node in ipairs(nodes) do
+        if node.is_file and node.path == target_path then
+            return index
+        end
+    end
+    return nil
+end
+
 ---Get file extension for fenced code block language
 ---@param file string
 ---@return string

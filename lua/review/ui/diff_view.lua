@@ -39,6 +39,12 @@ M.transitioning = false
 ---@type number|nil
 M.pending_restore_source_line = nil
 
+---Remembered jump-to-file position, so reopening the review returns to the
+---file and source line the user jumped from. In-memory only (lost on restart).
+---Set by jump_to_file() before closing; consumed by ui.open().
+---@type { file: string, source_line: number }|nil
+M.pending_reopen = nil
+
 ---Namespace for diff highlights
 local ns_diff = vim.api.nvim_create_namespace("review_diff")
 
@@ -1176,6 +1182,40 @@ local function get_current_source_line()
     return diff_parser.get_source_line(line_num, M.current.render_lines)
 end
 
+---Close the review and open the real file at the line under the cursor
+local function jump_to_file()
+    if not M.current or not M.current.file then
+        vim.notify("No file to open", vim.log.levels.WARN)
+        return
+    end
+
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local cursor_row = cursor[1]
+    local source_line, side = get_current_source_line()
+
+    local target
+    if side == "new" and source_line then
+        target = source_line
+    else
+        target = diff_parser.resolve_new_side_line(M.current.render_lines, cursor_row)
+    end
+
+    local abs = git.get_root() .. "/" .. M.current.file
+
+    -- Remember where we jumped from so reopening the review returns here.
+    -- Prefer the cursor's source line; fall back to the computed jump target.
+    M.pending_reopen = {
+        file = M.current.file,
+        source_line = source_line or target,
+    }
+
+    require("review.ui").close()
+
+    vim.cmd("edit " .. vim.fn.fnameescape(abs))
+
+    pcall(vim.api.nvim_win_set_cursor, 0, { math.min(target, vim.api.nvim_buf_line_count(0)), 0 })
+end
+
 ---Navigate to next change (add/delete block)
 local function goto_next_hunk()
     if not M.current or not M.current.render_lines then
@@ -2072,7 +2112,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
 
     map("c", add_comment, { desc = "Add comment", group = "Comments" }, { bufnr })
     vim.keymap.set("x", "c", add_comment_range, { buffer = bufnr, nowait = true, desc = "Add range comment" })
-    map("dc", delete_comment, { desc = "Delete comment", group = "Comments" }, { bufnr })
+    map("cd", delete_comment, { desc = "Delete comment", group = "Comments" }, { bufnr })
     map("cs", function()
         if not M.current then
             return
@@ -2100,7 +2140,8 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
             vim.notify("No comment at this line", vim.log.levels.WARN)
         end
     end, { desc = "Copy comment to clipboard", group = "Comments" }, { bufnr })
-    map("e", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
+    map("ce", edit_comment, { desc = "Edit comment", group = "Comments" }, { bufnr })
+    map("d", jump_to_file, { desc = "Open file at this line", group = "Navigation" }, { bufnr })
     map("X", function()
         local all = state.get_all_comments()
         if #all == 0 then

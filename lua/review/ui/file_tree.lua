@@ -1809,6 +1809,19 @@ function M.create(layout_component, callbacks)
 
         -- Position cursor on first navigable node (root `/` in tree view, first file in list view)
         if vim.api.nvim_win_is_valid(layout_component.winid) then
+            -- If an initial file was requested (e.g. restoring position after a
+            -- jump-to-file) and it is still present, select it instead of the
+            -- default first node. Works in both tree and list views.
+            local initial_index = paths.find_file_node_index(nodes, callbacks.initial_file)
+            if initial_index then
+                vim.api.nvim_win_set_cursor(layout_component.winid, { initial_index, 0 })
+                if callbacks.on_file_select then
+                    callbacks.on_file_select(nodes[initial_index].path)
+                end
+                M.update_footer()
+                return
+            end
+
             local cursor_set = false
             for node_index, node in ipairs(nodes) do
                 if node.is_root or node.is_file then

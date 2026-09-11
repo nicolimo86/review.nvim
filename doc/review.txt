@@ -244,12 +244,15 @@ the base; the plugin reports this rather than acting.
 7.2 Diff pane                                           *review-mappings-diff*
 
     c             Add a comment on the current line.
-    dc            Delete the comment on the current line.
+    cs            Send the comment on the current line to tmux.
+    cy            Copy the comment on the current line to clipboard.
+    cd            Delete the comment on the current line.
+    ce            Edit the comment on the current line.
+    d             Open the real file at the line under the cursor, closing
+                  the review. Reopening the review returns to the same file
+                  and line.
     ]c / [c       Next / previous hunk, wrapping at the ends.
     ]f / [f       Next / previous changed file, wrapping at the ends.
-    e             Open the real file at the current line, closing the
-                  review. Unlike the Files panel, this raises the exit menu
-                  when comments exist.
     S             Toggle unified and side-by-side diff.
     { / }         Shrink / expand the number of diff context lines.
     <C-n>         Hide or restore the sidebar.
@@ -262,7 +265,7 @@ the base; the plugin reports this rather than acting.
     q             Close the review.
     ?             Show the help overlay.
 
-In side-by-side mode `c` and `dc` are bound only on the right (new) pane.
+In side-by-side mode `c` and `cd` are bound only on the right (new) pane.
 Diffs of lock files (package-lock.json, yarn.lock, Cargo.lock and similar)
 are deliberately not rendered. A binary file renders as "Binary file — no
 diff to display." rather than an empty pane.

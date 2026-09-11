@@ -189,8 +189,9 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `c` | Add a comment on the current line |
 | `cs` | Send the comment on the current line to tmux |
 | `cy` | Copy the comment on the current line to clipboard |
-| `dc` | Delete the comment on the current line |
-| `e` | Edit the comment on the current line |
+| `cd` | Delete the comment on the current line |
+| `ce` | Edit the comment on the current line |
+| `d` | Open the real file at the line under the cursor, closing the review. Reopening the review returns to the same file and line |
 | `X` | Clear all comments (confirms first) |
 | `]c` / `[c` | Next / previous hunk |
 | `]f` / `[f` | Next / previous file |
@@ -205,7 +206,7 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `W` | Export comments to clipboard |
 | `?` | Help overlay |
 
-In side-by-side mode, `c` and `dc` are only bound on the right (new) pane. A binary file renders as a `Binary file` placeholder instead of an empty pane.
+In side-by-side mode, `c` and `cd` are only bound on the right (new) pane. A binary file renders as a `Binary file` placeholder instead of an empty pane.
 
 ### Comment input popup
 

@@ -300,4 +300,40 @@ function M.get_source_line(rendered_line_num, render_lines)
     return line.new_line, "new"
 end
 
+---Resolve the new-side (working file) line to jump to for a given cursor row.
+---
+---When the cursor sits on an add or context line, its `new_line` is used directly.
+---When it sits on a delete line (which has no new-side counterpart), the render
+---lines are scanned outward from the cursor in both directions, nearest first,
+---for the closest entry that carries a `new_line`. If nothing has a `new_line`
+---(e.g. an all-deletion hunk), it falls back to line 1.
+---@param render_lines DiffLine[]|SplitLine[]
+---@param cursor_row number 1-based line number in the rendered buffer
+---@return number target new-side line number (>= 1)
+function M.resolve_new_side_line(render_lines, cursor_row)
+    if type(render_lines) ~= "table" then
+        return 1
+    end
+
+    local current = render_lines[cursor_row]
+    if current and current.new_line then
+        return current.new_line
+    end
+
+    -- Scan outward from the cursor, nearest first, for a line with a new_line.
+    local max_offset = #render_lines
+    for offset = 1, max_offset do
+        local below = render_lines[cursor_row + offset]
+        if below and below.new_line then
+            return below.new_line
+        end
+        local above = render_lines[cursor_row - offset]
+        if above and above.new_line then
+            return above.new_line
+        end
+    end
+
+    return 1
+end
+
 return M
