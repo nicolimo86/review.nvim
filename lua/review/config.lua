@@ -75,7 +75,7 @@ M.defaults = {
         base = "HEAD", -- Compare against HEAD (unstaged changes)
     },
     ui = {
-        file_tree_width = 33,
+        file_tree_width = 16,
         diff_view_mode = "unified",
     },
     navigation = {

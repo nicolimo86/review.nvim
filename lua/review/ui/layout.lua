@@ -131,7 +131,7 @@ local function update_border_highlights()
     end
 end
 
-local MIN_SIDEBAR_WIDTH = 20
+local MIN_SIDEBAR_WIDTH = 10
 
 ---Sidebar content width: the manual resize if any, otherwise the configured percentage
 ---@return number
