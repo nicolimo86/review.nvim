@@ -490,7 +490,7 @@ local function setup_keymaps(bufnr)
                 end
             end)
         end)
-    end, { nowait = true, desc = "Checkout branch" })
+    end, { desc = "Checkout branch" })
 
     map("d", function()
         if not M.current then

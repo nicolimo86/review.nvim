@@ -1500,7 +1500,7 @@ local function setup_keymaps(bufnr, callbacks)
     }, close_review, active_timers, map, callbacks.on_escape)
 
     -- Toggle stage with space
-    map("<Space>", toggle_stage, { nowait = true, desc = "Toggle stage", group = "Review" })
+    map("<Space>", toggle_stage, { desc = "Toggle stage", group = "Review" })
 
     -- Refresh
     map("R", function()
