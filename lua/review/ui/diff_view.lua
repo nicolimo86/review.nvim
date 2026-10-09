@@ -2093,6 +2093,27 @@ end
 ---@param bufnr number
 ---@param callbacks table
 ---@param old_bufnr number|nil
+---Move focus to the Files panel, re-showing the sidebar if it was hidden
+local function focus_sidebar()
+    if not layout.is_file_tree_visible() then
+        layout.show_file_tree()
+    end
+    local file_tree_component = layout.get_file_tree()
+    if file_tree_component and file_tree_component.winid and vim.api.nvim_win_is_valid(file_tree_component.winid) then
+        vim.api.nvim_set_current_win(file_tree_component.winid)
+    end
+end
+
+---Move focus one pane to the left of the split "new" pane, falling back to the sidebar
+local function focus_left_of_new()
+    local old_component = layout.get_diff_view_old()
+    if old_component and vim.api.nvim_win_is_valid(old_component.winid) then
+        vim.api.nvim_set_current_win(old_component.winid)
+        return
+    end
+    focus_sidebar()
+end
+
 local function setup_keymaps(bufnr, callbacks, old_bufnr)
     registered_keymaps = {}
 
@@ -2220,21 +2241,10 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
             end,
         })
     end
-    local function focus_file_tree()
-        local file_tree_component = layout.get_file_tree()
-        if
-            file_tree_component
-            and file_tree_component.winid
-            and vim.api.nvim_win_is_valid(file_tree_component.winid)
-        then
-            vim.api.nvim_set_current_win(file_tree_component.winid)
-        end
-    end
-
     local passthrough = require("review.config").get().navigation.passthrough
 
     if old_bufnr then
-        vim.keymap.set("n", "<C-h>", focus_file_tree, { buffer = old_bufnr, nowait = true })
+        vim.keymap.set("n", "<C-h>", focus_sidebar, { buffer = old_bufnr, nowait = true })
         vim.keymap.set("n", "<C-l>", function()
             local new_component = layout.get_diff_view_new()
             if new_component and vim.api.nvim_win_is_valid(new_component.winid) then
@@ -2242,17 +2252,12 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
             end
         end, { buffer = old_bufnr, nowait = true })
 
-        vim.keymap.set("n", "<C-h>", function()
-            local old_component = layout.get_diff_view_old()
-            if old_component and vim.api.nvim_win_is_valid(old_component.winid) then
-                vim.api.nvim_set_current_win(old_component.winid)
-            end
-        end, { buffer = bufnr, nowait = true })
+        vim.keymap.set("n", "<C-h>", focus_left_of_new, { buffer = bufnr, nowait = true })
         if not passthrough then
             vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
         end
     else
-        vim.keymap.set("n", "<C-h>", focus_file_tree, { buffer = bufnr, nowait = true })
+        vim.keymap.set("n", "<C-h>", focus_sidebar, { buffer = bufnr, nowait = true })
         if not passthrough then
             vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
         end
@@ -2905,16 +2910,7 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
 
     -- Navigation keymaps for commit preview
     local passthrough = require("review.config").get().navigation.passthrough
-    vim.keymap.set("n", "<C-h>", function()
-        local file_tree_component = layout.get_file_tree()
-        if
-            file_tree_component
-            and file_tree_component.winid
-            and vim.api.nvim_win_is_valid(file_tree_component.winid)
-        then
-            vim.api.nvim_set_current_win(file_tree_component.winid)
-        end
-    end, { buffer = bufnr, nowait = true })
+    vim.keymap.set("n", "<C-h>", focus_sidebar, { buffer = bufnr, nowait = true })
     if not passthrough then
         vim.keymap.set("n", "<C-l>", "<Nop>", { buffer = bufnr, nowait = true })
         vim.keymap.set("n", "<C-j>", "<Nop>", { buffer = bufnr, nowait = true })
@@ -2929,6 +2925,12 @@ function M.create_commit_preview(layout_component, base, base_end, preview_callb
         vim.api.nvim_set_option_value("wrap", false, { win = layout_component.winid })
         vim.api.nvim_set_option_value("linebreak", false, { win = layout_component.winid })
     end
+end
+
+---Bind the sidebar-focus key on a diff buffer that never goes through create()
+---@param bufnr number
+function M.setup_nav_keymaps(bufnr)
+    vim.keymap.set("n", "<C-h>", focus_sidebar, { buffer = bufnr, nowait = true })
 end
 
 ---Get the current component

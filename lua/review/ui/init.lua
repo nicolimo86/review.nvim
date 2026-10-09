@@ -95,6 +95,11 @@ function M.open()
     local l = layout.create()
     layout.mount()
 
+    -- The diff buffer stays empty until a file is selected, so give it a way back to the sidebar now
+    if l.diff_view and l.diff_view.bufnr then
+        diff_view.setup_nav_keymaps(l.diff_view.bufnr)
+    end
+
     state.state.is_open = true
     state.state.diff_mode = config.get().ui.diff_view_mode
     log.info(
@@ -326,6 +331,7 @@ function M.show_welcome()
     table.insert(welcome, "")
 
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, welcome)
+    diff_view.setup_nav_keymaps(bufnr)
     vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
     vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
 
