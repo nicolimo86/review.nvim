@@ -42,7 +42,7 @@ M.pending_restore_source_line = nil
 ---Remembered jump-to-file position, so reopening the review returns to the
 ---file and source line the user jumped from. In-memory only (lost on restart).
 ---Set by jump_to_file() before closing; consumed by ui.open().
----@type { file: string, source_line: number }|nil
+---@type { file: string, source_line: number|nil, focus_diff: boolean|nil }|nil
 M.pending_reopen = nil
 
 ---Namespace for diff highlights
@@ -2931,6 +2931,30 @@ end
 ---@param bufnr number
 function M.setup_nav_keymaps(bufnr)
     vim.keymap.set("n", "<C-h>", focus_sidebar, { buffer = bufnr, nowait = true })
+end
+
+---Remember the reviewed file and cursor line so the next open returns to them.
+---Call before destroy(). No-op when no file is shown.
+function M.remember_position()
+    local current = M.current
+    if not current or not current.file then
+        return
+    end
+
+    local source_line
+    if current.winid and vim.api.nvim_win_is_valid(current.winid) and current.render_lines then
+        local row = vim.api.nvim_win_get_cursor(current.winid)[1]
+        source_line = diff_parser.get_source_line(row, current.render_lines)
+    end
+
+    local current_win = vim.api.nvim_get_current_win()
+    local in_diff = current_win == current.winid
+    if M.split_state then
+        local old_component = layout.get_diff_view_old()
+        in_diff = in_diff or (old_component ~= nil and current_win == old_component.winid)
+    end
+
+    M.pending_reopen = { file = current.file, source_line = source_line, focus_diff = in_diff }
 end
 
 ---Get the current component

@@ -124,7 +124,7 @@ function M.open()
     -- Whether this open is restoring a remembered jump position. Captured here
     -- because the `reopen` local is cleared inside on_file_select (which runs
     -- asynchronously), so it cannot be relied on for the end-of-open focus.
-    local restoring = reopen ~= nil
+    local restoring = reopen ~= nil and reopen.focus_diff ~= false
 
     -- Initialize file tree
     file_tree.create(l.file_tree, {
@@ -414,6 +414,11 @@ local function do_close(action)
 
     -- Stop file watcher
     watcher.stop()
+
+    -- A plain exit (toggle/q) returns to the same file and line on the next open
+    if action == "exit" then
+        diff_view.remember_position()
+    end
 
     -- Destroy components
     file_tree.destroy()
