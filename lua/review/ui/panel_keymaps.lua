@@ -43,7 +43,7 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
 
     map_function("q", on_close, { nowait = true, desc = "Close review", group = group })
 
-    map_function("S", function()
+    map_function("<leader>s", function()
         local export = require("review.export.markdown")
         local review_state = require("review.state")
         if review_state.state.gitlab_mode then
@@ -62,7 +62,7 @@ function M.setup(bufnr, navigation, on_close, active_timers, map_function, on_es
         end
     end, { nowait = true, desc = "Copy & send to tmux", group = group })
 
-    map_function("W", function()
+    map_function("<leader>y", function()
         require("review").export()
     end, { nowait = true, desc = "Export comments to clipboard", group = group })
 

@@ -31,7 +31,7 @@
 
 - Neovim 0.10 or later (enforced in `plugin/review.lua`)
 - `git` on `$PATH`
-- **tmux**, optional, only for `:Review send` and the `S` keymap. Everything else works without it.
+- **tmux**, optional, only for `:Review send` and the `<leader>s` keymap. Everything else works without it.
 - [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons), optional, file icons. Without it the icon column is blank.
 - Tree-sitter parsers for the languages you review, optional, syntax highlighting inside the diff. Without a parser the diff still renders, just uncolored.
 
@@ -116,7 +116,7 @@ lua require("review").setup({})
 | `:Review pick [count]` | Pick a base commit from the last `count` commits (default 20) |
 | `:Review qc` | Add a quick comment on the current line of the current buffer |
 | `:Review qp` | Toggle the quick comments panel |
-| `:Review gitlab` | Toggle GitLab MR mode (`S` prepends sync instructions with branch name) |
+| `:Review gitlab` | Toggle GitLab MR mode (`<leader>s` prepends sync instructions with branch name) |
 | `:Review log` | Open the plugin log file in a new tab |
 
 `:checkhealth review` verifies the Neovim version, git and the repository, tmux and `$TMUX`, whether `setup()` has run, the log level, and the log file path. The "`setup()` has not been called" result is a warning, not an error. The defaults are in effect either way.
@@ -178,8 +178,8 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `<C-k>` | *(passthrough to global keymap)* |
 | `<Esc>` | Reset the diff base back to `HEAD` (no-op unless a branch or commit is selected) |
 | `q` | Close the review |
-| `S` | Copy & send to tmux |
-| `W` | Export comments to clipboard |
+| `<leader>s` | Copy & send to tmux |
+| `<leader>y` | Export comments to clipboard |
 | `?` | Help overlay |
 
 ### Diff pane
@@ -202,8 +202,8 @@ All keymaps are buffer-local to the review UI. Press `?` in the Files, Branches,
 | `<C-l>` | In side-by-side, from the left pane focuses the right pane |
 | `<Esc>` | Focus the Files panel, and reset the base to `HEAD` if a branch or commit was selected |
 | `q` | Close the review |
-| `S` | Copy & send to tmux |
-| `W` | Export comments to clipboard |
+| `<leader>s` | Copy & send to tmux |
+| `<leader>y` | Export comments to clipboard |
 | `?` | Help overlay |
 
 In side-by-side mode, `c` and `cd` are only bound on the right (new) pane. A binary file renders as a `Binary file` placeholder instead of an empty pane.
@@ -240,8 +240,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-k>` | Focus the Files panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
-| `S` | Copy & send to tmux |
-| `W` | Export comments to clipboard |
+| `<leader>s` | Copy & send to tmux |
+| `<leader>y` | Export comments to clipboard |
 | `?` | Help overlay |
 
 ### Commits panel
@@ -260,8 +260,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-k>` | Focus the Branches panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
-| `S` | Copy & send to tmux |
-| `W` | Export comments to clipboard |
+| `<leader>s` | Copy & send to tmux |
+| `<leader>y` | Export comments to clipboard |
 | `?` | Help overlay |
 
 ### Comments panel
@@ -282,8 +282,8 @@ Submitting an empty input also discards the comment. The quick comment input has
 | `<C-k>` | Focus the Commits panel |
 | `<Esc>` | Reset the diff base back to `HEAD` |
 | `q` | Close the review |
-| `S` | Copy & send to tmux |
-| `W` | Export comments to clipboard |
+| `<leader>s` | Copy & send to tmux |
+| `<leader>y` | Export comments to clipboard |
 | `?` | Help overlay |
 
 ### Quick comments panel
@@ -392,7 +392,7 @@ The loop:
 3. `<Space>` on files in the Files panel to stage the parts you're keeping.
 4. Close the review:
    - `q`: closes immediately, preserving the session so `:Review` picks up where you left off.
-   - `S`: copies comments to the clipboard and sends them to the tmux target.
+   - `<leader>s`: copies comments to the clipboard and sends them to the tmux target.
 5. Paste into the agent, or let tmux do it for you.
 
 `:Review export` and `:Review send [target]` do the same export without closing the UI.

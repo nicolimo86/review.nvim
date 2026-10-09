@@ -2283,7 +2283,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
         end
     end, { nowait = true, desc = "Focus file tree", group = "Navigation" }, all_bufnrs)
     map("q", close_review, { nowait = true, desc = "Close review", group = "General" }, all_bufnrs)
-    map("S", function()
+    map("<leader>s", function()
         local export = require("review.export.markdown")
         local review_state = require("review.state")
         if review_state.state.gitlab_mode then
@@ -2301,7 +2301,7 @@ local function setup_keymaps(bufnr, callbacks, old_bufnr)
             export.to_tmux(nil, false)
         end
     end, { nowait = true, desc = "Copy & send to tmux", group = "General" }, all_bufnrs)
-    map("W", function()
+    map("<leader>y", function()
         require("review").export()
     end, { nowait = true, desc = "Export comments to clipboard", group = "General" }, all_bufnrs)
     map("?", show_help, { desc = "Show help", group = "General" }, all_bufnrs)
