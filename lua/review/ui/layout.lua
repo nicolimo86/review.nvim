@@ -35,6 +35,10 @@ M.pad_winid = nil
 ---@type number|nil
 M.pad_bufnr = nil
 
+---Sidebar content width from a manual resize; survives close/reopen within the session
+---@type number|nil
+M.sidebar_width = nil
+
 ---@type number|nil
 local resize_autocmd_id = nil
 
@@ -129,6 +133,13 @@ end
 
 local MIN_SIDEBAR_WIDTH = 20
 
+---Sidebar content width: the manual resize if any, otherwise the configured percentage
+---@return number
+local function default_sidebar_content_width()
+    local width = M.sidebar_width or math.floor(vim.o.columns * config.get().ui.file_tree_width / 100)
+    return math.max(math.min(width, vim.o.columns - MIN_SIDEBAR_WIDTH - 4), MIN_SIDEBAR_WIDTH - 2)
+end
+
 ---Calculate floating window positions for all panes
 ---@param sidebar_visible boolean
 ---@param sidebar_content_width_override number|nil Override sidebar content width (from manual resize)
@@ -138,9 +149,7 @@ local function calculate_positions(sidebar_visible, sidebar_content_width_overri
     local lines = vim.o.lines
     local total_height = lines - 2
 
-    local opts = config.get()
-    local sidebar_content_width = sidebar_content_width_override
-        or math.floor(columns * opts.ui.file_tree_width / 100)
+    local sidebar_content_width = sidebar_content_width_override or default_sidebar_content_width()
 
     local positions = {}
 
@@ -299,8 +308,7 @@ function M.create()
     local base_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(base_win, diff_buf)
 
-    local opts = config.get()
-    local sidebar_content_width = math.floor(vim.o.columns * opts.ui.file_tree_width / 100)
+    local sidebar_content_width = default_sidebar_content_width()
     local sidebar_outer_width = sidebar_content_width + 2
 
     -- Create a left padding split for the sidebar to float over
@@ -383,6 +391,7 @@ function M.create()
 
             -- Sidebar content width is pad width minus border (2 cols)
             local sidebar_content_width = math.max(pad_width - 2, 1)
+            M.sidebar_width = sidebar_content_width
             local positions = calculate_positions(true, sidebar_content_width)
 
             for _, panel_def in ipairs(SIDEBAR_PANELS) do
@@ -606,9 +615,7 @@ function M.show_file_tree()
 
     -- Restore padding window width for sidebar
     if M.pad_winid and vim.api.nvim_win_is_valid(M.pad_winid) then
-        local opts = config.get()
-        local sidebar_content_width = math.floor(vim.o.columns * opts.ui.file_tree_width / 100)
-        local sidebar_outer_width = sidebar_content_width + 2
+        local sidebar_outer_width = default_sidebar_content_width() + 2
         vim.api.nvim_win_set_width(M.pad_winid, sidebar_outer_width)
     end
 
