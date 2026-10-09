@@ -21,7 +21,7 @@
 
 ---@class ReviewUIConfig
 ---@field file_tree_width number Width of file tree panel (percentage)
----@field diff_view_mode "unified"|"split" Default diff view mode
+---@field diff_view_mode "unified"|"split"|"inline" Default diff view mode
 
 ---@class ReviewNavigationConfig
 ---@field passthrough boolean When true, boundary C-h/j/k/l keys are not captured, letting global keymaps (e.g. vim-tmux-navigator) handle them

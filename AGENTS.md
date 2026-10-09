@@ -40,7 +40,7 @@ Test files live in `tests/` and follow the naming convention `test_<module>.lua`
 
 Shared fixtures and factories are in `tests/helpers.lua`.
 
-Tested modules: `comment_types`, `config`, `core/diff`, `core/format`, `core/json_persistence`, `core/paths`, `export/markdown`, `quick_comments/markdown`, `quick_comments/state`, `state`. `core/git` is tested only for its pure parsers (`tests/test_git_parse.lua` covers name-status and commit-line parsing); everything in it that shells out to git is not.
+Tested modules: `comment_types`, `config`, `core/diff`, `core/inline`, `core/word_diff`, `core/format`, `core/json_persistence`, `core/paths`, `export/markdown`, `quick_comments/markdown`, `quick_comments/state`, `state`. `core/git` is tested only for its pure parsers (`tests/test_git_parse.lua` covers name-status and commit-line parsing); everything in it that shells out to git is not.
 
 Not tested (integration-heavy): `core/async`, `core/log`, `core/persistence`, `core/watcher`, `commands`, `health`, `quick_comments/init`, `quick_comments/panel`, `quick_comments/persistence`, `quick_comments/signs`, `ui/*`.
 
@@ -57,6 +57,8 @@ lua/review/
 ├── core/
 │   ├── git.lua                 # Git operations (diffs, status, staging) + pure parsers
 │   ├── diff.lua                # Unified diff parsing into structured hunks
+│   ├── inline.lua              # Inline mode layout: maps hunks onto working-tree file rows
+│   ├── word_diff.lua           # Word-level changed-span detection for a pair of lines
 │   ├── format.lua              # Date shortening, author initials, UTF-8 truncation
 │   ├── paths.lua               # Path helpers (relative paths, fence language, test files)
 │   ├── async.lua               # Coroutine-based async utilities
@@ -69,6 +71,7 @@ lua/review/
 │   ├── layout.lua              # Floating-window tab layout (sidebar floats + diff pane)
 │   ├── file_tree.lua           # Files panel: file list with status icons
 │   ├── diff_view.lua           # Diff pane: diff, inline comments, comment input
+│   ├── inline_view.lua         # Inline mode: working-tree file plus extmark/virt_lines decoration
 │   ├── comment_list.lua        # Comments panel
 │   ├── commit_list.lua         # Commits panel
 │   ├── branch_list.lua         # Branches panel
@@ -111,6 +114,10 @@ Everything the UI shows is derived from two fields in `state.lua`: `base` and `b
 
 `comment.line` is a display row in the current rendering, not a durable location — `diff_view.render_comments` overwrites it on every render via `display_row_for()`. The durable anchor is `original_line` plus `side` (`"old"` or `"new"`), captured from the source line when the comment is submitted; re-anchoring scans `render_lines` for the row whose source line matches on the matching side, and falls back to the old `comment.line` if the line no longer exists in the diff. Export prefers `original_line` when reporting a location. Anything that changes diff parsing or rendering must keep `original_line`/`side` intact, or comments silently drift onto the wrong lines.
 
+### Inline Diff Mode (experimental)
+
+`ui.diff_view_mode = "inline"` fills the diff pane's scratch buffer with the working-tree file (read from disk) and decorates it instead of rendering hunks. `core/inline.lua` maps parsed hunks onto file rows; `ui/inline_view.lua` draws them. Added lines are real rows, so `render_lines` has one entry per file row and a display row is the source line; `get_source_line` and `display_row_for` therefore work unchanged on the new side. Deleted lines have no row: they are `virt_lines` attached above the next surviving row (below the last row for deletions at EOF), and `M.current.inline.change_rows` drives `]c`/`[c` since pure deletions are invisible in `render_lines`. It only applies when `base_end == nil` and the file still exists; otherwise `render_diff_async` falls through to the unified renderer. Known gaps: `side = "old"` comments have nowhere to attach, and `v` leaves inline for unified.
+
 ### Session Persistence
 
 Sessions live at `review-session.json` inside the resolved git dir (`git rev-parse --absolute-git-dir`), not the working tree, so worktrees and submodules get their own file. The format is versioned (`version = 1`); an unknown version is left untouched.
@@ -147,6 +154,7 @@ Autosave (`VimLeavePre`) is registered from `plugin/review.lua`, so sessions per
 - `:Review qc` – Add a quick comment on the current line
 - `:Review qp` – Toggle the quick comments panel
 - `:Review gitlab` – Toggle GitLab MR mode (S prepends sync preamble with branch name)
+- `:Review inline` – Open the UI in inline diff mode for that open only (`ui.open({ diff_mode = "inline" })`); reopens if already open
 - `:Review log` – Open the log file in a new tab
 
 `:Review` is registered from `plugin/review.lua`, so it exists without `setup()`.

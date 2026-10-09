@@ -52,8 +52,9 @@ function M.toggle()
 end
 
 ---Open the review UI
-function M.open()
-    ui.open()
+---@param opts? { diff_mode: "unified"|"split"|"inline"|nil } diff_mode overrides ui.diff_view_mode for this open
+function M.open(opts)
+    ui.open(opts)
 end
 
 ---Close the review UI

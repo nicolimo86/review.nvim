@@ -117,6 +117,7 @@ lua require("review").setup({})
 | `:Review qc` | Add a quick comment on the current line of the current buffer |
 | `:Review qp` | Toggle the quick comments panel |
 | `:Review gitlab` | Toggle GitLab MR mode (`<leader>s` prepends sync instructions with branch name) |
+| `:Review inline` | Open the UI in the experimental inline diff mode for this open (reopens if already open) |
 | `:Review log` | Open the plugin log file in a new tab |
 
 `:checkhealth review` verifies the Neovim version, git and the repository, tmux and `$TMUX`, whether `setup()` has run, the log level, and the log file path. The "`setup()` has not been called" result is a warning, not an error. The defaults are in effect either way.
@@ -369,7 +370,7 @@ The `nil` entries are unset by default. No global keymaps are created unless you
 - `keymaps.toggle`: global normal-mode key that toggles the review UI.
 - `diff.base`: git revision the diff compares against. `"HEAD"` means "everything in the worktree".
 - `ui.file_tree_width`: sidebar width as a **percentage** of total columns, not a column count.
-- `ui.diff_view_mode`: `"unified"` or `"split"` (side-by-side) on open. `v` toggles at runtime.
+- `ui.diff_view_mode`: `"unified"`, `"split"` (side-by-side) or `"inline"` on open. `v` toggles unified/split at runtime and leaves inline for unified. `"inline"` (experimental) shows the working-tree file itself, with added lines highlighted and deleted lines drawn as virtual lines above the row they were removed from. It applies to working-tree reviews only; commit and branch ranges, deleted files and binary files fall back to unified. Comments attach to the new side only: deleted lines cannot be commented on yet.
 - `navigation.passthrough`: when `true` (default), boundary `<C-h>`/`<C-j>`/`<C-k>`/`<C-l>` keys are not captured by the review UI, letting your global keymaps handle them. This enables seamless navigation with plugins like vim-tmux-navigator or smart-splits. When `false`, those keys are swallowed at the UI edges to keep focus inside the review.
 - `tmux.target`: tmux target that `:Review send` pastes into. The default `"!"` is tmux's last active pane, which is normally the pane you came from, usually the one running your agent. Any target `tmux paste-buffer -t` accepts works instead, e.g. a named window `"CLAUDE"`, `"CLAUDE.0"` or a fully qualified `"session:window.pane"`.
 - `tmux.auto_enter`: send `Enter` after pasting. Off by default so you can read the prompt before submitting it.

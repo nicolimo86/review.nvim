@@ -139,7 +139,8 @@ the diff pane; <C-h> jumps from the diff pane back to Files. <C-n> hides and
 restores the entire sidebar.
 
 The diff pane renders unified by default and can be flipped to side-by-side
-with `v`, or by setting `ui.diff_view_mode` to "split".
+with `v`, or by setting `ui.diff_view_mode` to "split". The experimental
+"inline" mode decorates the working-tree file instead of rendering hunks.
 
 ==============================================================================
 5. COMMANDS                                                  *review-commands*
@@ -167,6 +168,8 @@ with `v`, or by setting `ui.diff_view_mode` to "split".
 
 :Review qp              Toggle the quick comments panel.
 
+:Review inline          Open the UI in the experimental inline diff mode for this
+                        open only. Reopens the UI if it is already open.
 :Review log             Open the plugin log file in a new tab.
 
 ==============================================================================
@@ -464,8 +467,13 @@ ui.file_tree_width ~
     Sidebar width as a percentage of total columns, not a column count.
 
 ui.diff_view_mode ~
-    "unified" or "split" (side-by-side) when the UI opens. `v` toggles it at
-    runtime.
+    "unified", "split" (side-by-side) or "inline" when the UI opens. `v`
+    toggles unified/split at runtime and leaves inline for unified.
+    "inline" (experimental) shows the working-tree file itself: added lines
+    are highlighted and deleted lines are drawn as virtual lines above the
+    row they were removed from. It only applies to working-tree reviews;
+    commit and branch ranges, deleted files and binary files fall back to
+    unified. Comments attach to the new side only.
 
 navigation.passthrough ~
     When true (default), boundary <C-h>, <C-j>, <C-k> and <C-l> keys at the

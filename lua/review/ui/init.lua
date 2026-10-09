@@ -73,7 +73,8 @@ function M.setup()
 end
 
 ---Open the review UI
-function M.open()
+---@param opts? { diff_mode: "unified"|"split"|"inline"|nil } diff_mode overrides ui.diff_view_mode for this open
+function M.open(opts)
     if state.state.is_open then
         log.debug("ui: open ignored, already open")
         return
@@ -101,7 +102,7 @@ function M.open()
     end
 
     state.state.is_open = true
-    state.state.diff_mode = config.get().ui.diff_view_mode
+    state.state.diff_mode = opts and opts.diff_mode or config.get().ui.diff_view_mode
     log.info(
         "ui: layout mounted base_win=",
         layout.base_winid,

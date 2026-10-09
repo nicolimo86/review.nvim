@@ -20,7 +20,7 @@
 ---@field is_open boolean Whether UI is currently open
 ---@field files table<string, ReviewFileState>
 ---@field current_file string|nil Currently selected file
----@field diff_mode "unified"|"split"
+---@field diff_mode "unified"|"split"|"inline"
 ---@field base string Git base for comparison
 ---@field base_end string|nil End of commit range (for history mode: base..base_end)
 ---@field comment_id_counter number

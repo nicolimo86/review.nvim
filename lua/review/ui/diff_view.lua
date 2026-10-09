@@ -2,10 +2,13 @@ local async = require("review.core.async")
 local comment_types_module = require("review.comment_types")
 local diff_parser = require("review.core.diff")
 local git = require("review.core.git")
+local inline = require("review.core.inline")
+local inline_view = require("review.ui.inline_view")
 local layout = require("review.ui.layout")
 local log = require("review.core.log")
 local state = require("review.state")
 local ui_util = require("review.ui.util")
+local word_diff = require("review.core.word_diff")
 
 local comment_types = comment_types_module.TYPES
 local comment_type_order = comment_types_module.ORDER
@@ -21,6 +24,7 @@ local diff_generation = 0
 ---@field file string
 ---@field render_lines table[]
 ---@field ns_id number
+---@field inline InlineLayout|nil Set while the pane shows the working-tree file (inline mode)
 
 ---@class SplitDiffState
 ---@field old_bufnr number
@@ -392,90 +396,7 @@ local function apply_treesitter_highlights_async(bufnr, render_lines, display_li
     log.debug("diff_view: treesitter highlights took ", string.format("%.2fms", ts_elapsed_ms), " file=", file)
 end
 
----Split string into tokens (words, punctuation, whitespace)
----@param str string
----@return table[] tokens with {text, start, end}
-local function tokenize(str)
-    local tokens = {}
-    local i = 1
-    local len = #str
-
-    while i <= len do
-        local start = i
-        local char = str:sub(i, i)
-
-        if char:match("%s") then
-            -- Whitespace
-            while i <= len and str:sub(i, i):match("%s") do
-                i = i + 1
-            end
-        elseif char:match("[%w_]") then
-            -- Word (alphanumeric + underscore)
-            while i <= len and str:sub(i, i):match("[%w_]") do
-                i = i + 1
-            end
-        else
-            -- Punctuation/symbol - single char
-            i = i + 1
-        end
-
-        table.insert(tokens, {
-            text = str:sub(start, i - 1),
-            start = start - 1, -- 0-indexed for nvim
-            finish = i - 1, -- 0-indexed for nvim
-        })
-    end
-
-    return tokens
-end
-
----Compute word-level diff between two strings
----Returns list of {start, end} ranges that are different in new_str
----@param old_str string
----@param new_str string
----@return table[] ranges of changed characters in new_str
-local function compute_inline_diff(old_str, new_str)
-    if not old_str or not new_str then
-        return {}
-    end
-
-    local old_tokens = tokenize(old_str)
-    local new_tokens = tokenize(new_str)
-
-    -- Find common prefix tokens
-    local prefix_count = 0
-    while prefix_count < #old_tokens and prefix_count < #new_tokens do
-        if old_tokens[prefix_count + 1].text == new_tokens[prefix_count + 1].text then
-            prefix_count = prefix_count + 1
-        else
-            break
-        end
-    end
-
-    -- Find common suffix tokens (don't overlap with prefix)
-    local suffix_count = 0
-    while suffix_count < (#old_tokens - prefix_count) and suffix_count < (#new_tokens - prefix_count) do
-        local old_idx = #old_tokens - suffix_count
-        local new_idx = #new_tokens - suffix_count
-        if old_tokens[old_idx].text == new_tokens[new_idx].text then
-            suffix_count = suffix_count + 1
-        else
-            break
-        end
-    end
-
-    -- The changed tokens in new_str
-    local first_changed = prefix_count + 1
-    local last_changed = #new_tokens - suffix_count
-
-    if first_changed <= last_changed then
-        local start_pos = new_tokens[first_changed].start
-        local end_pos = new_tokens[last_changed].finish
-        return { { start_pos, end_pos } }
-    end
-
-    return {}
-end
+local compute_inline_diff = word_diff.compute
 
 ---Find matching delete/add pairs for word-level diff
 ---@param render_lines table[]
@@ -639,6 +560,18 @@ local function restore_view(winid, saved, render_lines)
     end)
 end
 
+---Capture the view right before the buffer is replaced (the user may have moved during the fetch)
+---@param refresh boolean|nil
+---@param bufnr number
+---@return table|nil saved_view, number|nil view_winid
+local function snapshot_view(refresh, bufnr)
+    local view_winid = refresh and M.current and M.current.winid
+    if view_winid and vim.api.nvim_win_is_valid(view_winid) and vim.api.nvim_win_get_buf(view_winid) == bufnr then
+        return capture_view(view_winid, M.current.render_lines), view_winid
+    end
+    return nil, nil
+end
+
 ---@param bufnr number
 ---@param file string
 ---@param expected_generation number
@@ -720,6 +653,30 @@ local function render_diff_async(bufnr, file, expected_generation, opts)
         return nil
     end
 
+    if state.state.diff_mode == "inline" and inline.supports(parsed, state.state.base_end) then
+        local contents = inline_view.read_file(file)
+        if contents then
+            local saved_inline_view, saved_inline_win = snapshot_view(refresh, bufnr)
+            local winid = M.current and M.current.bufnr == bufnr and M.current.winid or nil
+            local render_lines, inline_layout = inline_view.render(bufnr, winid, file, parsed, contents, ns_diff)
+            if saved_inline_view then
+                restore_view(saved_inline_win, saved_inline_view, render_lines)
+            end
+            state.get_file_state(file).render_lines = render_lines
+            if M.current and M.current.bufnr == bufnr and expected_generation == diff_generation then
+                M.current.render_lines = render_lines
+                M.current.inline = inline_layout
+            end
+            return render_lines
+        end
+    end
+
+    -- Unified rendering (also the fallback when inline is unsupported for this diff)
+    inline_view.release(bufnr)
+    if M.current and M.current.bufnr == bufnr then
+        M.current.inline = nil
+    end
+
     local raw_lines = diff_parser.get_render_lines(parsed)
 
     local display_lines = { file, "" }
@@ -736,12 +693,7 @@ local function render_diff_async(bufnr, file, expected_generation, opts)
         end
     end
 
-    -- Capture the view right before replacing lines (the user may have moved during the fetch)
-    local view_winid = refresh and M.current and M.current.winid
-    local saved_view = nil
-    if view_winid and vim.api.nvim_win_is_valid(view_winid) and vim.api.nvim_win_get_buf(view_winid) == bufnr then
-        saved_view = capture_view(view_winid, M.current.render_lines)
-    end
+    local saved_view, view_winid = snapshot_view(refresh, bufnr)
 
     -- Set buffer content
     vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
@@ -1287,8 +1239,26 @@ local function jump_to_file()
     pcall(vim.api.nvim_win_set_cursor, 0, { math.min(target, vim.api.nvim_buf_line_count(0)), 0 })
 end
 
+---Jump between change blocks in inline mode, where deleted lines have no rows of their own
+---@param direction 1|-1
+---@return boolean handled
+local function goto_inline_change(direction)
+    if not M.current or not M.current.inline then
+        return false
+    end
+    local cursor = vim.api.nvim_win_get_cursor(0)[1]
+    local target = inline.next_change(M.current.inline.change_rows, cursor, direction)
+    if target then
+        vim.api.nvim_win_set_cursor(0, { target, 0 })
+    end
+    return true
+end
+
 ---Navigate to next change (add/delete block)
 local function goto_next_hunk()
+    if goto_inline_change(1) then
+        return
+    end
     if not M.current or not M.current.render_lines then
         return
     end
@@ -1326,6 +1296,9 @@ end
 
 ---Navigate to previous change (add/delete block)
 local function goto_prev_hunk()
+    if goto_inline_change(-1) then
+        return
+    end
     if not M.current or not M.current.render_lines then
         return
     end
@@ -2552,6 +2525,9 @@ function M.create(layout_component, file, callbacks)
         bufnr = layout_component.bufnr
     end
     M.split_state = nil
+    if state.state.diff_mode ~= "inline" then
+        inline_view.release(bufnr)
+    end
 
     -- Set up component immediately for keymaps and UI
     M.current = {

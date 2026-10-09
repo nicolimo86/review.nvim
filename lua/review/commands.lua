@@ -20,6 +20,12 @@ function M.setup()
         if not subcommand or subcommand == "" then
             -- Toggle review UI
             ui.toggle()
+        elseif subcommand == "inline" then
+            -- Reopen when already open: the diff mode is fixed when the UI opens
+            if ui.is_open() then
+                ui.close()
+            end
+            ui.open({ diff_mode = "inline" })
         elseif subcommand == "close" then
             ui.close()
         elseif subcommand == "export" then
@@ -77,7 +83,7 @@ function M.setup()
             if #parts == 2 then
                 return vim.tbl_filter(function(item)
                     return vim.startswith(item, arg_lead)
-                end, { "close", "commit", "export", "gitlab", "log", "pick", "qc", "qp", "send" })
+                end, { "close", "commit", "export", "gitlab", "inline", "log", "pick", "qc", "qp", "send" })
             end
             return {}
         end,
