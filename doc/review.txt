@@ -48,8 +48,8 @@ Required:
 
 Optional:
 
-  - tmux. Needed only by |:Review| send and by the "Copy & Send to tmux" exit
-    option. Every other feature works without tmux installed.
+  - tmux. Needed only by |:Review| send and by the `<leader>s` mapping.
+    Every other feature works without tmux installed.
   - nvim-web-devicons, for file type icons in the Files and Comments panels.
     Without it the icon column renders empty.
   - Tree-sitter parsers for the languages you review, for syntax colouring
@@ -139,7 +139,7 @@ the diff pane; <C-h> jumps from the diff pane back to Files. <C-n> hides and
 restores the entire sidebar.
 
 The diff pane renders unified by default and can be flipped to side-by-side
-with `S`, or by setting `ui.diff_view_mode` to "split".
+with `v`, or by setting `ui.diff_view_mode` to "split".
 
 ==============================================================================
 5. COMMANDS                                                  *review-commands*
@@ -216,7 +216,7 @@ or in the diff pane, for a help overlay listing that panel's mappings.
     L             Show the file's full path in a popup.
     R             Refresh the file list.
     `             Toggle tree view and flat list view.
-    S             Toggle unified and side-by-side diff.
+    v             Toggle unified and side-by-side diff.
     { / }         Shrink / expand the number of diff context lines.
     c             Commit staged changes. Opens a Subject and Description
                   popup; <Tab> switches fields, <CR> in Subject confirms,
@@ -235,6 +235,8 @@ or in the diff pane, for a help overlay listing that panel's mappings.
     <Esc>         Reset the diff base back to HEAD. Does nothing unless a
                   branch or commit is currently selected.
     q             Close the review.
+    <leader>y     Export all comments to the clipboard as markdown.
+    <leader>s     Copy to the clipboard and send to the tmux target.
     ?             Show the help overlay.
 
 Staging and committing are disabled while a commit or branch is selected as
@@ -253,7 +255,7 @@ the base; the plugin reports this rather than acting.
                   and line.
     ]c / [c       Next / previous hunk, wrapping at the ends.
     ]f / [f       Next / previous changed file, wrapping at the ends.
-    S             Toggle unified and side-by-side diff.
+    v             Toggle unified and side-by-side diff.
     { / }         Shrink / expand the number of diff context lines.
     <C-n>         Hide or restore the sidebar.
     <C-h>         Focus the Files panel. In side-by-side mode, from the right
@@ -263,6 +265,8 @@ the base; the plugin reports this rather than acting.
     <Esc>         Focus the Files panel, resetting the base to HEAD if a
                   branch or commit was selected.
     q             Close the review.
+    <leader>y     Export all comments to the clipboard as markdown.
+    <leader>s     Copy to the clipboard and send to the tmux target.
     ?             Show the help overlay.
 
 In side-by-side mode `c` and `cd` are bound only on the right (new) pane.
@@ -311,6 +315,8 @@ submits immediately.
     <C-k>         Focus the Files panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    <leader>y     Export all comments to the clipboard as markdown.
+    <leader>s     Copy to the clipboard and send to the tmux target.
     ?             Show the help overlay.
 
 ------------------------------------------------------------------------------
@@ -330,6 +336,8 @@ submits immediately.
     <C-k>         Focus the Branches panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    <leader>y     Export all comments to the clipboard as markdown.
+    <leader>s     Copy to the clipboard and send to the tmux target.
     ?             Show the help overlay.
 
 Preview is skipped for commits touching more than 50 files, and individual
@@ -352,6 +360,8 @@ file diffs longer than 1000 lines are elided in the preview.
     <C-k>         Focus the Commits panel.
     <Esc>         Reset the diff base back to HEAD.
     q             Close the review.
+    <leader>y     Export all comments to the clipboard as markdown.
+    <leader>s     Copy to the clipboard and send to the tmux target.
     ?             Show the help overlay.
 
 ------------------------------------------------------------------------------
@@ -454,7 +464,7 @@ ui.file_tree_width ~
     Sidebar width as a percentage of total columns, not a column count.
 
 ui.diff_view_mode ~
-    "unified" or "split" (side-by-side) when the UI opens. `S` toggles it at
+    "unified" or "split" (side-by-side) when the UI opens. `v` toggles it at
     runtime.
 
 navigation.passthrough ~
@@ -542,20 +552,14 @@ The intended loop:
      its type, <CR> to submit. Comments render as boxed virtual lines under
      the code and collect in the Comments panel.
   3. Press <Space> in the Files panel to stage the parts you are keeping.
-  4. Press `q`. If there are comments, an exit menu appears:
-
-       Exit, Copy & Send to tmux   Copy to the clipboard and paste into the
-                                   configured tmux target.
-       Exit & Copy                 Clipboard only.
-       Exit                        Keep the saved session so the next
-                                   |:Review| resumes where you left off.
-
-     The two copy options clear the saved session. With no comments, `q`
-     exits immediately with no menu.
+  4. Press `<leader>s` to copy the comments to the clipboard and paste them
+     into the configured tmux target, or `<leader>y` for the clipboard only.
+     Neither closes the review. `q` closes it and keeps the saved session, so
+     the next |:Review| resumes where you left off.
   5. Paste into your agent, or let tmux have done it for you.
 
 |:Review| export and |:Review| send do the same export without closing the
-UI. "Copy & Send" fails quietly when Neovim is not inside tmux, so you still
+UI. `<leader>s` fails quietly when Neovim is not inside tmux, so you still
 get the clipboard copy and no error popup.
 
 The generated markdown groups comments by file, and each one carries its type
