@@ -595,7 +595,58 @@ end
 ---@param file string
 ---@param expected_generation number
 ---@return table[]|nil render_lines
-local function render_diff_async(bufnr, file, expected_generation)
+---Last diff output rendered into the unified buffer, so refreshes can skip
+---re-rendering (and the treesitter pass) when nothing changed.
+---@type { bufnr: number, file: string, output: string }|nil
+local last_rendered = nil
+
+---Capture the window view plus the source line under the cursor, so a refresh
+---can keep the cursor on the same code line even when lines shift above it.
+---@param winid number
+---@param render_lines table[]|nil
+---@return table
+local function capture_view(winid, render_lines)
+    local view = vim.api.nvim_win_call(winid, vim.fn.winsaveview)
+    local line = render_lines and render_lines[view.lnum]
+    local anchor = nil
+    if line and line.new_line then
+        anchor = { side = "new", line = line.new_line }
+    elseif line and line.old_line then
+        anchor = { side = "old", line = line.old_line }
+    end
+    return { view = view, anchor = anchor }
+end
+
+---Restore a view captured by capture_view() against freshly rendered lines
+---@param winid number
+---@param saved table
+---@param render_lines table[]
+local function restore_view(winid, saved, render_lines)
+    local view = saved.view
+    if saved.anchor then
+        local key = saved.anchor.side == "new" and "new_line" or "old_line"
+        for index, line in ipairs(render_lines) do
+            if line[key] == saved.anchor.line then
+                view.topline = math.max(1, view.topline + index - view.lnum)
+                view.lnum = index
+                break
+            end
+        end
+    end
+    view.lnum = math.min(view.lnum, #render_lines)
+    vim.api.nvim_win_call(winid, function()
+        vim.fn.winrestview(view)
+    end)
+end
+
+---@param bufnr number
+---@param file string
+---@param expected_generation number
+---@param opts? { refresh: boolean } refresh: skip when unchanged and keep the cursor position
+---@return table[]|nil render_lines
+---@return boolean|nil unchanged true when a refresh found the diff unchanged
+local function render_diff_async(bufnr, file, expected_generation, opts)
+    local refresh = opts and opts.refresh
     if is_lock_file(file) then
         vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
         vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
@@ -631,6 +682,15 @@ local function render_diff_async(bufnr, file, expected_generation)
         vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
         return nil
     end
+
+    local unchanged = last_rendered
+        and last_rendered.bufnr == bufnr
+        and last_rendered.file == file
+        and last_rendered.output == result.output
+    if refresh and unchanged and M.current and M.current.bufnr == bufnr then
+        return M.current.render_lines, true
+    end
+    last_rendered = { bufnr = bufnr, file = file, output = result.output }
 
     if result.output == "" then
         vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
@@ -676,12 +736,23 @@ local function render_diff_async(bufnr, file, expected_generation)
         end
     end
 
+    -- Capture the view right before replacing lines (the user may have moved during the fetch)
+    local view_winid = refresh and M.current and M.current.winid
+    local saved_view = nil
+    if view_winid and vim.api.nvim_win_is_valid(view_winid) and vim.api.nvim_win_get_buf(view_winid) == bufnr then
+        saved_view = capture_view(view_winid, M.current.render_lines)
+    end
+
     -- Set buffer content
     vim.api.nvim_set_option_value("readonly", false, { buf = bufnr })
     vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, display_lines)
     vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
     vim.api.nvim_set_option_value("readonly", true, { buf = bufnr })
+
+    if saved_view then
+        restore_view(view_winid, saved_view, render_lines)
+    end
 
     -- Stage 1: apply diff highlights immediately (no I/O)
     local line_pairs = find_line_pairs(render_lines)
@@ -2595,14 +2666,28 @@ function M.toggle_diff_mode(callbacks)
 end
 
 ---Render the diff (for refreshing)
-function M.render()
+---@param opts? { refresh: boolean } refresh: background refresh, skip when unchanged and keep the view
+function M.render(opts)
     if not M.current then
         return
     end
 
     if M.split_state then
         -- Split mode stays sync (less common path)
+        local views = {}
+        if opts and opts.refresh then
+            for _, component in ipairs({ layout.get_diff_view_old(), layout.get_diff_view_new() }) do
+                if component and vim.api.nvim_win_is_valid(component.winid) then
+                    views[component.winid] = vim.api.nvim_win_call(component.winid, vim.fn.winsaveview)
+                end
+            end
+        end
         local old_lines, new_lines = render_split_diff(M.split_state.old_bufnr, M.split_state.new_bufnr, M.current.file)
+        for winid, view in pairs(views) do
+            vim.api.nvim_win_call(winid, function()
+                vim.fn.winrestview(view)
+            end)
+        end
         if old_lines then
             M.split_state.old_lines = old_lines
             M.split_state.new_lines = new_lines
@@ -2617,9 +2702,9 @@ function M.render()
         local current_generation = diff_generation
 
         async.run(function()
-            local render_lines = render_diff_async(bufnr, file, current_generation)
+            local render_lines, unchanged = render_diff_async(bufnr, file, current_generation, opts)
 
-            if current_generation ~= diff_generation then
+            if unchanged or current_generation ~= diff_generation then
                 return
             end
             if not vim.api.nvim_buf_is_valid(bufnr) or not state.state.is_open then

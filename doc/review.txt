@@ -518,6 +518,9 @@ auto_refresh.debounce_ms ~
     The git directory's `HEAD`, `refs/` tree and `logs/` are watched on a
     separate channel, so new commits, branches and checkouts refresh the
     Commits and Branches panels (and the file tree) automatically.
+    The open diff refreshes too, even while the diff pane is focused. It is
+    re-rendered only when its content changed, and the cursor stays on the
+    same source line.
 
 persistence.enabled ~
     Remember comments and review state between sessions. Files are written

@@ -133,6 +133,7 @@ Autosave (`VimLeavePre`) is registered from `plugin/review.lua`, so sessions per
 - **Git root caching**: Cached to avoid repeated syscalls
 - **Keymap tracking**: Panels register keymaps through `ui/util.lua`'s buffer mapper so `?` can render the help overlay from the same list
 - **Navigation passthrough**: `config.navigation.passthrough` (default `true`) controls whether boundary `<C-h/j/k/l>` keys are bound to `<Nop>` at UI edges. When `true`, those keys are not captured, letting global keymaps (e.g. vim-tmux-navigator) handle them. Internal navigation (sidebar `<C-l>` to diff, diff `<C-h>` to sidebar, split-mode pane switching) is always bound regardless of this setting. The logic lives in `panel_keymaps.lua` and `diff_view.lua`.
+- **Auto-refresh**: `core/watcher.lua` triggers `diff_view.render({ refresh = true })` on file and git-metadata changes, even while the diff pane is focused. A refresh compares the new `git diff` output to the last rendered one and returns early when unchanged (no buffer rewrite, no treesitter pass); otherwise it keeps the cursor on the same source line
 - **Highlight defaults**: Groups in `highlights.lua` use the `ui/palette.lua` colors and are set with `default = true`, and re-applied on `ColorScheme` so they survive a theme change
 
 ## User Commands

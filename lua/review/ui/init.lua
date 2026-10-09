@@ -266,18 +266,9 @@ function M.open()
             end
             file_tree.refresh()
             if state.state.current_file then
-                -- Skip diff re-render while the user is focused on the diff pane to avoid
-                -- stalling the render loop with treesitter highlighting during scrolling.
-                local current_win = vim.api.nvim_get_current_win()
-                local diff_component = layout.get_diff_view()
-                local diff_old = layout.get_diff_view_old()
-                local diff_new = layout.get_diff_view_new()
-                local in_diff = (diff_component and current_win == diff_component.winid)
-                    or (diff_old and current_win == diff_old.winid)
-                    or (diff_new and current_win == diff_new.winid)
-                if not in_diff then
-                    diff_view.render()
-                end
+                -- Refresh even while the diff pane is focused: the render is skipped when
+                -- the diff is unchanged, and keeps the cursor on the same source line.
+                diff_view.render({ refresh = true })
             end
         end, function()
             -- Git metadata changed (new commit, branch, checkout): refresh the
@@ -288,6 +279,9 @@ function M.open()
             commit_list.refresh()
             branch_list.refresh()
             file_tree.refresh()
+            if state.state.current_file then
+                diff_view.render({ refresh = true })
+            end
         end)
     end
 end
